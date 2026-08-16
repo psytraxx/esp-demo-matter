@@ -12,6 +12,7 @@ Entries are grouped by date, newest first.
 ### Fixed
 - The light now comes back exactly as you left it after a power cut — same on/off state, same brightness, same colour. Previously it always powered up switched off and at minimum brightness, discarding whatever was set before, because the firmware asked Matter for the wrong start-up behaviour.
 - The colour-temperature tab in Home Assistant now works. It was showing a strange, mostly-flat gradient and moving the slider did nothing, because the firmware ignored temperature entirely and advertised an unrealistic range. It now renders warm-to-cool white properly across a normal lamp's range, and the light remembers whether you last used the colour wheel or the temperature slider.
+- Setting a colour, cutting the power and switching back on no longer brings the light up as bright white. The firmware was asking Matter to force a fixed colour temperature at every power-up, which overrode the colour that had just been restored.
 
 ### Changed
 - Renamed the device from "Matter Demo (C6)" to "Matter Light Demo" (shown in Home Assistant and printed on the hardware version string).

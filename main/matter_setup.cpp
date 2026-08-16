@@ -419,6 +419,14 @@ static esp_err_t create_endpoints(esp_matter::node_t *node)
         cfg.color_control_color_temperature.color_temp_physical_max_mireds = 500; // ~2000 K
         cfg.color_control_color_temperature.color_temperature_mireds       = 250; // ~4000 K
 
+        // Same trap as StartUpOnOff: esp_matter defaults this to a concrete
+        // value (250 mireds) rather than null. The spec says a non-null
+        // StartUpColorTemperatureMireds forces ColorMode to "colour
+        // temperature" on every boot — which threw away a restored XY colour
+        // and lit the LED warm white instead. Null means "keep the previous
+        // value", leaving ColorMode alone.
+        cfg.color_control_color_temperature.start_up_color_temperature_mireds = nullable<uint16_t>();
+
         endpoint_t *ep = endpoint::extended_color_light::create(node, &cfg, ENDPOINT_FLAG_NONE, NULL);
         if (!ep)
         {
@@ -500,6 +508,20 @@ extern "C" void matter_setup(EventGroupHandle_t boot_events,
         // rest of the light state.
         if (attribute::get_val(s_ep_light, ColorControl::Id, ColorControl::Attributes::ColorMode::Id, &val) == ESP_OK)
             s_light_use_temp = (val.val.u8 == (uint8_t)ColorControl::ColorModeEnum::kColorTemperatureMireds);
+
+        // The config default above only applies to a fresh NVS. On a device
+        // that was flashed with an earlier build, StartUpColorTemperatureMireds
+        // is already stored as 250, and the colour-control server re-forces
+        // ColorMode to "colour temperature" on every boot from it — discarding
+        // the restored XY colour. Write the null back explicitly so the stored
+        // value stops overriding the previous colour.
+        {
+            esp_matter_attr_val_t null_temp =
+                esp_matter_nullable_uint16(nullable<uint16_t>());
+            attribute::update(s_ep_light, ColorControl::Id,
+                              ColorControl::Attributes::StartUpColorTemperatureMireds::Id,
+                              &null_temp);
+        }
 
         apply_light_state(false);
         ESP_LOGI(TAG, "Restored light state: on=%d level=%u x=%u y=%u mireds=%u temp_mode=%d",

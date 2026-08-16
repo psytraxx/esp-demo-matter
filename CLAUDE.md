@@ -58,12 +58,20 @@ Same ICD LIT / tickless-light-sleep model as `esp32-homecontrol-matter`: no
 task may busy-poll. The BOOT button is interrupt-driven with a GPIO
 light-sleep wake source (`button_init()`); don't reintroduce polling.
 
-`StartUpOnOff` and `StartUpCurrentLevel` must stay **null** in the
-`extended_color_light` config (`create_endpoints()`). esp_matter defaults both
-to `0`, which the Matter spec reads as "power up Off" and "power up at level 0"
-(clamped to `min_level` = 1) — that silently overwrites the persisted light
-state on every boot. Null selects "restore previous value", which is what makes
-the light come back as it was left.
+**All three `StartUp*` attributes must stay null.** esp_matter defaults every
+one of them to a concrete value, and the Matter spec treats a non-null value as
+"force this on power up", which silently discards the persisted light state:
+
+| Attribute | esp_matter default | What it forced on boot |
+|---|---|---|
+| `StartUpOnOff` | `0` | light comes up Off |
+| `StartUpCurrentLevel` | `0` (clamps to `min_level` 1) | minimum brightness |
+| `StartUpColorTemperatureMireds` | `0x00fa` (250) | `ColorMode` → colour temperature, discarding the restored XY colour |
+
+Null means "restore previous value" in each case. They are set in
+`create_endpoints()`, but note that config only applies to a **fresh NVS** — a
+device flashed with an earlier build still has the old value stored, so
+`matter_setup()` also writes the null back explicitly at runtime.
 
 Light state is restored from the cluster's own non-volatile attributes
 (On/Off, CurrentLevel, CurrentX/Y, ColorTemperatureMireds and **ColorMode**) —
