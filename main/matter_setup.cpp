@@ -220,9 +220,13 @@ static void matter_event_cb(const chip::DeviceLayer::ChipDeviceEvent *event, int
 // the last value of each here so any single attribute write can recompute the
 // final RGB output.
 static bool    s_light_on    = false;
-static uint8_t s_light_level = 254;  // CurrentLevel default (full brightness)
-static uint16_t s_light_x    = 0;    // CurrentX (0..65535 represents 0.0..1.0)
-static uint16_t s_light_y    = 0;    // CurrentY
+static uint8_t s_light_level = 254;    // CurrentLevel default (full brightness)
+// CurrentX/CurrentY defaults match esp_matter's color_control::feature::xy
+// config_t defaults (0x616b/0x607d — a warm-white point), not 0/0. Tracking
+// the wrong default here left the LED black on the very first On command,
+// before Home Assistant had ever written a color.
+static uint16_t s_light_x    = 0x616b; // CurrentX (0..65535 represents 0.0..1.0)
+static uint16_t s_light_y    = 0x607d; // CurrentY
 
 // CIE 1931 xyY → sRGB (Philips Hue formula), Y normalised to 1.0 — brightness
 // is applied separately from the Level Control attribute.

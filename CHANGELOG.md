@@ -11,3 +11,4 @@ Entries are grouped by date, newest first.
 
 ### Fixed
 - Pressing the BOOT button no longer flashes the RGB LED. That green blink was meant as a quick "got it" confirmation for the button press, but since the same LED also shows whatever color Home Assistant has set for the light, it was briefly overwriting that color on every press. The switch still toggles correctly; there's just no LED flash tied to it now.
+- Turning the light on/off from Home Assistant now actually switches the LED. Before the first color was ever set, the firmware assumed the light's color was black, so switching it "on" just left the LED dark — it now assumes the same default warm-white color Matter itself starts the light at, matching what a controller would expect to see.
