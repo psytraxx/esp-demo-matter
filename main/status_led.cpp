@@ -80,11 +80,9 @@ static void ensure_init(void)
 
 // ── Colour fading ────────────────────────────────────────────────────────────
 //
-// Transitions run in a short-lived task rather than the caller's context: the
-// Matter attribute callback must not block, and a fade must not busy-wait (see
-// the light-sleep rules in CLAUDE.md). The task steps every
-// STATUS_LED_FADE_STEP_MS and exits as soon as it reaches the target, so the
-// CPU is only held awake for the length of the transition.
+// Transitions run in a short-lived task rather than the caller's context,
+// because the Matter attribute callback must not block. The task steps every
+// STATUS_LED_FADE_STEP_MS and exits as soon as it reaches the target.
 
 #define STATUS_LED_FADE_MS       400
 #define STATUS_LED_FADE_STEP_MS  20

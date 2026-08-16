@@ -29,8 +29,7 @@ void status_led_set_rgb(uint8_t r, uint8_t g, uint8_t b);
 // STATUS_LED_FADE_MS instead of jumping. A fade already in progress is
 // retargeted, so rapid updates (a Home Assistant colour-wheel drag) chase the
 // latest value rather than queueing up. The fade runs in a short-lived task
-// that exits once the target is reached, so it does not hold off light sleep
-// any longer than the transition itself.
+// that exits once the target is reached.
 void status_led_fade_rgb(uint8_t r, uint8_t g, uint8_t b);
 
 #ifdef __cplusplus

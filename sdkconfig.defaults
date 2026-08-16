@@ -34,13 +34,6 @@ CONFIG_BT_NIMBLE_TRANSPORT_EVT_COUNT=16
 CONFIG_BT_NIMBLE_TRANSPORT_EVT_DISCARD_COUNT=4
 # Matter over Thread (BLE commissioning only).
 # Thread is the operational transport; BLE is torn down once the device joins a fabric.
-CONFIG_BT_LE_SLEEP_ENABLE=y
-CONFIG_ESP_PHY_MAC_BB_PD=y
-CONFIG_ESP_SLEEP_POWER_DOWN_FLASH=y
-# The BLE controller must keep time across light sleep from the always-on
-# low-power clock; the IDF default sources it from the main XTAL, which is
-# gated off in light sleep and drops advertising/GATT mid-commissioning.
-CONFIG_BT_LE_LP_CLK_SRC_DEFAULT=y
 
 # Disable Wi-Fi — this board is Thread-only. These keys turn off Matter's use of
 # Wi-Fi so the CHIP stack no longer falls back to a (failing) Wi-Fi station
@@ -51,13 +44,17 @@ CONFIG_ENABLE_WIFI_STATION=n
 CONFIG_ESP_WIFI_SOFTAP_SUPPORT=n
 CONFIG_ENABLE_WIFI_AP=n
 
-# Thread / OpenThread (MTD — Minimal Thread Device / sleepy end device)
+# Thread / OpenThread (FTD — Full Thread Device, always on)
+# This is a mains-powered light, so it stays awake and routes for the mesh
+# rather than sleeping between polls. A sleepy end device would add up to a
+# full poll interval of latency before it noticed a command from Home
+# Assistant, which is the wrong trade for something you switch on and off.
 CONFIG_OPENTHREAD_ENABLED=y
 CONFIG_OPENTHREAD_SRP_CLIENT=y
 CONFIG_OPENTHREAD_LOG_LEVEL_DYNAMIC=n
 CONFIG_OPENTHREAD_LOG_LEVEL_NOTE=y
 CONFIG_OPENTHREAD_CLI=n
-CONFIG_OPENTHREAD_MTD=y
+CONFIG_OPENTHREAD_FTD=y
 
 # lwIP / IPv6-only networking — Thread is IPv6-only, so the IPv4 stack is
 # dropped to save flash/RAM.
@@ -70,31 +67,13 @@ CONFIG_LWIP_MULTICAST_PING=y
 CONFIG_USE_MINIMAL_MDNS=n
 CONFIG_MBEDTLS_SSL_PROTO_DTLS=y
 
-# Power management: dynamic frequency scaling + tickless idle so the chip
-# light-sleeps automatically between Thread polls.
+# Power management: dynamic frequency scaling only. Light sleep is deliberately
+# NOT enabled — the radio has to stay listening for a router, and sleeping
+# between commands is what made the light slow to react. Mains power, so there
+# is nothing to save it for.
 CONFIG_PM_ENABLE=y
 CONFIG_PM_DFS_INIT_AUTO=y
-CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP=y
-CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
-CONFIG_IEEE802154_SLEEP_ENABLE=y
 
-# Tickless idle legitimately keeps CPU0's IDLE task from running for stretches
-# longer than the 5 s task-watchdog timeout (ICD_SLOW_POLL_INTERVAL_MS alone is
-# 20 s) — that's the CPU sleeping as intended, not a hang. Stop the watchdog
-# from treating it as one; other tasks are still watched normally.
-CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0=n
-
-# Matter ICD (Intermittent Connected Device) in LIT (Long Idle Time) mode: the
-# device stays attached to Thread and is reachable via ICD check-in while idle.
-CONFIG_ENABLE_ICD_SERVER=y
-CONFIG_ENABLE_ICD_LIT=y
-CONFIG_ICD_SLOW_POLL_INTERVAL_MS=20000
-CONFIG_ICD_FAST_POLL_INTERVAL_MS=500
-CONFIG_ICD_IDLE_MODE_INTERVAL_SEC=600
-CONFIG_ICD_ACTIVE_MODE_INTERVAL_MS=1000
-CONFIG_ICD_ACTIVE_MODE_THRESHOLD_MS=5000
-CONFIG_ICD_CLIENTS_SUPPORTED_PER_FABRIC=2
-CONFIG_ICD_MAX_NOTIFICATION_SUBSCRIBERS=2
 CONFIG_ENABLE_EXTENDED_DISCOVERY=y
 
 # Matter device identity
@@ -117,9 +96,3 @@ CONFIG_ESP_INSIGHTS_ENABLED=n
 
 # No display on this board variant — pairing code is printed to the serial
 # console only (see run_commissioning() in app_main.cpp).
-
-# Keep the USB Serial/JTAG peripheral awake while a host is connected — without
-# this, tickless light sleep stops servicing USB mid-session, and some flaky
-# host controllers (e.g. AMD/ASMedia chipset USB) drop the CDC-ACM connection
-# permanently instead of resuming it.
-CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION=y

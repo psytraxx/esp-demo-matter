@@ -6,7 +6,6 @@
 #include <algorithm>
 
 #include "esp_log.h"
-#include "esp_pm.h"
 #include "esp_system.h"
 #include "esp_matter.h"
 #include "esp_matter_endpoint.h"
@@ -72,44 +71,6 @@ static EventGroupHandle_t s_matter_events = NULL;
 #define MATTER_BIT_CODES_READY (1 << 0)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-// C6 tickless light sleep (see CLAUDE.md) otherwise engages between BLE GATT
-// exchanges, and the resulting wake latency stacks up over a commissioning
-// session until the commissioner (phone/HA) gives up and drops the link. Hold
-// the radio awake and the CPU at full speed for the duration of the BLE
-// commissioning window so pairing stays responsive.
-static esp_pm_lock_handle_t s_commissioning_pm_lock = NULL;
-static bool                 s_commissioning_pm_lock_held = false;
-
-static void commissioning_pm_lock_acquire(void)
-{
-    if (!s_commissioning_pm_lock)
-    {
-        esp_err_t err = esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0,
-                                            "ble_commission", &s_commissioning_pm_lock);
-        if (err != ESP_OK)
-        {
-            ESP_LOGW(TAG, "esp_pm_lock_create failed: %d", err);
-            return;
-        }
-    }
-    if (!s_commissioning_pm_lock_held)
-    {
-        esp_pm_lock_acquire(s_commissioning_pm_lock);
-        s_commissioning_pm_lock_held = true;
-        ESP_LOGI(TAG, "PM: light sleep held off for BLE commissioning");
-    }
-}
-
-static void commissioning_pm_lock_release(void)
-{
-    if (s_commissioning_pm_lock_held)
-    {
-        esp_pm_lock_release(s_commissioning_pm_lock);
-        s_commissioning_pm_lock_held = false;
-        ESP_LOGI(TAG, "PM: light sleep re-enabled");
-    }
-}
 
 static void open_commissioning_window(void)
 {
@@ -178,7 +139,6 @@ static void matter_event_cb(const chip::DeviceLayer::ChipDeviceEvent *event, int
 
     case chip::DeviceLayer::DeviceEventType::kCommissioningWindowOpened:
         ESP_LOGI(TAG, "Commissioning window opened");
-        commissioning_pm_lock_acquire();
         refresh_pairing_codes();
         break;
 
@@ -188,14 +148,12 @@ static void matter_event_cb(const chip::DeviceLayer::ChipDeviceEvent *event, int
 
     case chip::DeviceLayer::DeviceEventType::kCommissioningComplete:
         ESP_LOGI(TAG, "Commissioning complete");
-        commissioning_pm_lock_release();
         if (s_boot_events)
             xEventGroupSetBits(s_boot_events, s_commissioned_bit);
         break;
 
     case chip::DeviceLayer::DeviceEventType::kFailSafeTimerExpired:
         ESP_LOGW(TAG, "Commissioning failed (failsafe expired)");
-        commissioning_pm_lock_release();
         break;
 
     case chip::DeviceLayer::DeviceEventType::kFabricRemoved:

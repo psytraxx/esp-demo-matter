@@ -3,7 +3,6 @@
 #include <inttypes.h>
 
 #include "esp_log.h"
-#include "esp_sleep.h"
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -32,8 +31,8 @@ static void IRAM_ATTR button_isr(void *)
 
 // Blocks until a press wakes it, then times how long the button is held: a
 // hold of FACTORY_RESET_HOLD_MS or longer fires the long-press callback, a
-// shorter press fires the short-press callback. Because it blocks (rather than
-// polls) while idle, it does not keep the CPU out of tickless light sleep.
+// shorter press fires the short-press callback. It blocks while idle rather
+// than polling.
 static void button_task(void *)
 {
     const TickType_t step = pdMS_TO_TICKS(50);
@@ -82,14 +81,9 @@ void button_init(void (*on_long_press)(void), void (*on_short_press)(void))
     s_on_long_press  = on_long_press;
     s_on_short_press = on_short_press;
 
-    // Level-triggered (LOW), NOT edge-triggered. The chip wakes from automatic
-    // tickless light sleep on the LOW level (see below), but with peripherals
-    // powered down in light sleep the falling *edge* is consumed by the wake
-    // logic and never latches a GPIO edge interrupt — so an edge-triggered ISR
-    // would silently miss every press made while the device is asleep (the
-    // common case for a commissioned device). A level interrupt instead fires
-    // as soon as the GPIO peripheral is restored and sees the pin still held
-    // LOW. The ISR masks itself and the task re-arms it on release.
+    // Level-triggered (LOW), NOT edge-triggered. The ISR masks itself as soon
+    // as it fires and the task re-arms it once the button is released, so a
+    // held button does not re-enter the handler continuously.
     gpio_config_t cfg = {
         .pin_bit_mask = (1ULL << PIN_WAKE_BUTTON),
         .mode         = GPIO_MODE_INPUT,
@@ -110,10 +104,6 @@ void button_init(void (*on_long_press)(void), void (*on_short_press)(void))
     // outcomes are fine, so don't ESP_ERROR_CHECK it.
     gpio_install_isr_service(0);
     gpio_isr_handler_add(PIN_WAKE_BUTTON, button_isr, NULL);
-
-    // Let a press wake the chip from automatic light sleep so the ISR can run.
-    gpio_wakeup_enable(PIN_WAKE_BUTTON, GPIO_INTR_LOW_LEVEL);
-    esp_sleep_enable_gpio_wakeup();
 
     ESP_LOGI(TAG, "BOOT button ready (hold %" PRIu32 " ms to factory-reset)",
              (uint32_t)FACTORY_RESET_HOLD_MS);

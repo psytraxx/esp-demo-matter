@@ -50,8 +50,7 @@ static void app_init()
     matter_setup(g_boot_events, BOOT_BIT_COMMISSIONED, BOOT_BIT_SERVER_READY);
 
     // Interrupt-driven BOOT button — short press toggles the light's On/Off
-    // attribute, long hold factory-resets. Blocks while idle so it does not
-    // defeat light sleep.
+    // attribute, long hold factory-resets.
     button_init(on_button_long_press, on_button_short_press);
 }
 

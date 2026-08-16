@@ -2,10 +2,17 @@
 
 Minimal Matter test device for the **Waveshare ESP32-C6-LCD-1.3** (display
 unused). Language: C++ on the **native ESP-IDF v5.5.5** toolchain
-(`espressif/esp_matter`), same stack as the sibling `esp32-homecontrol-matter`
-project — see that project's CLAUDE.md for the full rationale behind the
-Matter-over-Thread ICD LIT power model, light-sleep quirks, and commissioning
-flow; this file only covers what's specific to this stripped-down demo.
+(`espressif/esp_matter`), the same stack as the sibling
+`esp32-homecontrol-matter` project — see that project's CLAUDE.md for the
+commissioning flow rationale; this file only covers what's specific to this
+stripped-down demo.
+
+**Power model differs from the sibling project.** That one is a battery-minded
+sensor node running Matter ICD LIT as a sleepy end device. This is a
+mains-powered light, so it runs as an always-on Thread **FTD** with no ICD and
+no light sleep: a sleepy device would add up to a poll interval of latency
+before it reacted to Home Assistant, which is the wrong trade for a light.
+Don't port the ICD/light-sleep configuration back over from the sibling.
 
 One Matter endpoint — **Extended Color Light**, driving the onboard WS2812 RGB
 LED (GPIO8). Home Assistant shows a full-color light with a color wheel, a
@@ -54,9 +61,9 @@ without file or function names. Compare the existing entries for the tone —
 
 ## Platform Quirks — Do Not Break
 
-Same ICD LIT / tickless-light-sleep model as `esp32-homecontrol-matter`: no
-task may busy-poll. The BOOT button is interrupt-driven with a GPIO
-light-sleep wake source (`button_init()`); don't reintroduce polling.
+The device is always on — no ICD, no tickless light sleep (see the power-model
+note at the top). The BOOT button is still interrupt-driven rather than polled
+(`button_init()`), which is simply the better design; keep it that way.
 
 **All three `StartUp*` attributes must stay null.** esp_matter defaults every
 one of them to a concrete value, and the Matter spec treats a non-null value as
@@ -80,6 +87,4 @@ Matter colour-control server and tells the restore path whether the light was
 last driven by the colour wheel or the temperature slider.
 
 The colour fade (`status_led_fade_rgb()`) runs in a task that exits as soon as
-it reaches the target, so it only holds the CPU awake for the length of the
-transition. Keep it that way — a permanently resident animation task would
-defeat light sleep.
+it reaches the target, rather than a permanently resident animation task.

@@ -15,6 +15,7 @@ Entries are grouped by date, newest first.
 - Setting a colour, cutting the power and switching back on no longer brings the light up as bright white. The firmware was asking Matter to force a fixed colour temperature at every power-up, which overrode the colour that had just been restored.
 
 ### Changed
+- The light now stays awake and responds immediately instead of sleeping between checks. It was configured as a battery-style sleepy device inherited from the plant monitor project, which meant it could take up to 20 seconds to notice a command from Home Assistant. Being mains-powered, it now stays on the Thread network full time and even helps relay traffic for other devices.
 - Renamed the device from "Matter Demo (C6)" to "Matter Light Demo" (shown in Home Assistant and printed on the hardware version string).
 
 ## 2026-08-16
