@@ -1,0 +1,14 @@
+managed_components/
+dependencies.lock
+sdkconfig
+build/
+*.bin
+*.elf
+*.map
+.DS_Store
+*.old
+.vscode/c_cpp_properties.json
+.antigravitycli/
+.cache/
+.serena/
+.vscode/launch.json

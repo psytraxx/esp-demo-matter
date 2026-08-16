@@ -1,0 +1,125 @@
+# sdkconfig defaults for the Waveshare ESP32-C6-LCD-1.3 (ESP32-C6, 4 MB flash,
+# no PSRAM), display unused. Loaded by the root CMakeLists.txt.
+
+# Target / flash / partition table
+CONFIG_IDF_TARGET="esp32c6"
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_waveshare_c6.csv"
+
+# System
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+CONFIG_FREERTOS_HZ=1000
+CONFIG_MBEDTLS_HKDF_C=y
+
+# Size optimisation
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE=n
+
+# CPU frequency: 80 MHz saves power (Matter stack is not CPU-bound).
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_80=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=80
+
+# BLE (commissioning only)
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLE_CONN_REATTEMPT=n
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+CONFIG_BT_NIMBLE_MAX_BONDS=1
+CONFIG_BT_NIMBLE_MAX_CCCDS=4
+CONFIG_BT_NIMBLE_MSYS_1_BLOCK_COUNT=12
+CONFIG_BT_NIMBLE_MSYS_2_BLOCK_COUNT=12
+CONFIG_BT_NIMBLE_TRANSPORT_ACL_FROM_LL_COUNT=12
+CONFIG_BT_NIMBLE_TRANSPORT_EVT_COUNT=16
+CONFIG_BT_NIMBLE_TRANSPORT_EVT_DISCARD_COUNT=4
+# Matter over Thread (BLE commissioning only).
+# Thread is the operational transport; BLE is torn down once the device joins a fabric.
+CONFIG_BT_LE_SLEEP_ENABLE=y
+CONFIG_ESP_PHY_MAC_BB_PD=y
+CONFIG_ESP_SLEEP_POWER_DOWN_FLASH=y
+# The BLE controller must keep time across light sleep from the always-on
+# low-power clock; the IDF default sources it from the main XTAL, which is
+# gated off in light sleep and drops advertising/GATT mid-commissioning.
+CONFIG_BT_LE_LP_CLK_SRC_DEFAULT=y
+
+# Disable Wi-Fi — this board is Thread-only. These keys turn off Matter's use of
+# Wi-Fi so the CHIP stack no longer falls back to a (failing) Wi-Fi station
+# connection loop. Note: the IDF Wi-Fi driver itself cannot be dropped from the
+# link here — CONFIG_ESP_WIFI_ENABLED is a non-prompt symbol hardwired to y for
+# any SoC with a Wi-Fi radio, so there is no sdkconfig switch to compile it out.
+CONFIG_ENABLE_WIFI_STATION=n
+CONFIG_ESP_WIFI_SOFTAP_SUPPORT=n
+CONFIG_ENABLE_WIFI_AP=n
+
+# Thread / OpenThread (MTD — Minimal Thread Device / sleepy end device)
+CONFIG_OPENTHREAD_ENABLED=y
+CONFIG_OPENTHREAD_SRP_CLIENT=y
+CONFIG_OPENTHREAD_LOG_LEVEL_DYNAMIC=n
+CONFIG_OPENTHREAD_LOG_LEVEL_NOTE=y
+CONFIG_OPENTHREAD_CLI=n
+CONFIG_OPENTHREAD_MTD=y
+
+# lwIP / IPv6-only networking — Thread is IPv6-only, so the IPv4 stack is
+# dropped to save flash/RAM.
+CONFIG_LWIP_IPV4=n
+CONFIG_DISABLE_IPV4=y
+CONFIG_LWIP_ND6=n
+CONFIG_LWIP_IPV6_AUTOCONFIG=n
+CONFIG_LWIP_IPV6_NUM_ADDRESSES=8
+CONFIG_LWIP_MULTICAST_PING=y
+CONFIG_USE_MINIMAL_MDNS=n
+CONFIG_MBEDTLS_SSL_PROTO_DTLS=y
+
+# Power management: dynamic frequency scaling + tickless idle so the chip
+# light-sleeps automatically between Thread polls.
+CONFIG_PM_ENABLE=y
+CONFIG_PM_DFS_INIT_AUTO=y
+CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP=y
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
+CONFIG_IEEE802154_SLEEP_ENABLE=y
+
+# Tickless idle legitimately keeps CPU0's IDLE task from running for stretches
+# longer than the 5 s task-watchdog timeout (ICD_SLOW_POLL_INTERVAL_MS alone is
+# 20 s) — that's the CPU sleeping as intended, not a hang. Stop the watchdog
+# from treating it as one; other tasks are still watched normally.
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0=n
+
+# Matter ICD (Intermittent Connected Device) in LIT (Long Idle Time) mode: the
+# device stays attached to Thread and is reachable via ICD check-in while idle.
+CONFIG_ENABLE_ICD_SERVER=y
+CONFIG_ENABLE_ICD_LIT=y
+CONFIG_ICD_SLOW_POLL_INTERVAL_MS=20000
+CONFIG_ICD_FAST_POLL_INTERVAL_MS=500
+CONFIG_ICD_IDLE_MODE_INTERVAL_SEC=600
+CONFIG_ICD_ACTIVE_MODE_INTERVAL_MS=1000
+CONFIG_ICD_ACTIVE_MODE_THRESHOLD_MS=5000
+CONFIG_ICD_CLIENTS_SUPPORTED_PER_FABRIC=2
+CONFIG_ICD_MAX_NOTIFICATION_SUBSCRIBERS=2
+CONFIG_ENABLE_EXTENDED_DISCOVERY=y
+
+# Matter device identity
+CONFIG_DEVICE_VENDOR_ID=0xFFF2
+CONFIG_DEVICE_PRODUCT_ID=0x8003
+# Per-build pairing code (discriminator + passcode + spake2p verifier) — edit
+# main/chip_project_config.h before flashing to give each device its own code.
+CONFIG_CHIP_PROJECT_CONFIG="main/chip_project_config.h"
+CONFIG_ENABLE_COMMISSIONABLE_DEVICE_TYPE=y
+# Device type 0x010A = On/Off Light (root endpoint placeholder; the real
+# device types live on the two dynamic endpoints — light + switch)
+CONFIG_DEVICE_TYPE=266
+CONFIG_ESP_MATTER_MAX_DYNAMIC_ENDPOINT_COUNT=8
+
+# Disable unused Matter clusters to save flash
+CONFIG_SUPPORT_CLOSURE_CONTROL_CLUSTER=n
+CONFIG_SUPPORT_CLOSURE_DIMENSION_CLUSTER=n
+CONFIG_SUPPORT_GROUPCAST_CLUSTER=n
+CONFIG_ESP_INSIGHTS_ENABLED=n
+
+# No display on this board variant — pairing code is printed to the serial
+# console only (see run_commissioning() in app_main.cpp).
+
+# Keep the USB Serial/JTAG peripheral awake while a host is connected — without
+# this, tickless light sleep stops servicing USB mid-session, and some flaky
+# host controllers (e.g. AMD/ASMedia chipset USB) drop the CDC-ACM connection
+# permanently instead of resuming it.
+CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION=y

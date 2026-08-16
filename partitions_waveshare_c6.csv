@@ -1,0 +1,8 @@
+# Name,   Type, SubType, Offset,   Size,     Flags
+# 4MB flash layout (ESP32-C6FH4): single factory app, no OTA slots + Matter NVS.
+# otadata stays at the conventional 0xe000 because the flasher writes boot_app0.bin
+# there; left erased it makes the bootloader fall through to the factory app.
+nvs,      data, nvs,     0x9000,   0x5000,
+otadata,  data, ota,     0xe000,   0x2000,
+app0,     app,  factory, 0x10000,  0x3D0000,
+matter,   data, nvs,     0x3E0000, 0x10000,
