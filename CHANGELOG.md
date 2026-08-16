@@ -8,3 +8,6 @@ Entries are grouped by date, newest first.
 
 ### Added
 - Initial version of this demo device: a minimal Matter test firmware for the Waveshare ESP32-C6-LCD-1.3, built from the same ESP-IDF/Matter-over-Thread stack as the plant monitor project but with the screen left unused. Home Assistant sees two things — a full-color light (set any color from a color wheel, driving the onboard RGB LED) and a switch that flips every time the BOOT button is pressed. Since there's no screen, the pairing code needed to add the device in Home Assistant is printed to the serial console on first boot instead.
+
+### Fixed
+- Pressing the BOOT button no longer flashes the RGB LED. That green blink was meant as a quick "got it" confirmation for the button press, but since the same LED also shows whatever color Home Assistant has set for the light, it was briefly overwriting that color on every press. The switch still toggles correctly; there's just no LED flash tied to it now.

@@ -32,8 +32,9 @@ static void on_button_long_press(void)
 
 static void on_button_short_press(void)
 {
+    // No LED feedback here: the LED is user-owned (driven by the light
+    // endpoint's color/brightness), so a button press must not touch it.
     matter_button_toggle();
-    status_led_set(STATUS_LED_OK);
 }
 
 // One-time hardware and subsystem initialisation.
