@@ -10,9 +10,8 @@ Entries are grouped by date, newest first.
 - Colour changes now fade smoothly into place over about half a second instead of snapping to the new colour. Dragging the colour wheel in Home Assistant follows your finger rather than queueing up a backlog of jumps.
 
 ### Fixed
-- The light now comes back exactly as you left it after a power cut — same on/off state, same brightness, same colour. Previously it always powered up switched off and at minimum brightness, discarding whatever was set before, because the firmware asked Matter for the wrong start-up behaviour.
+- The light now comes back exactly as you left it after a power cut — same on/off state, same brightness, same colour. Previously it powered up switched off and at minimum brightness, and once that was fixed it still came up bright white instead of the colour you had set. In each case the firmware was telling Matter to force a fixed value at power-up rather than asking it to keep the previous one.
 - The colour-temperature tab in Home Assistant now works. It was showing a strange, mostly-flat gradient and moving the slider did nothing, because the firmware ignored temperature entirely and advertised an unrealistic range. It now renders warm-to-cool white properly across a normal lamp's range, and the light remembers whether you last used the colour wheel or the temperature slider.
-- Setting a colour, cutting the power and switching back on no longer brings the light up as bright white. The firmware was asking Matter to force a fixed colour temperature at every power-up, which overrode the colour that had just been restored.
 
 ### Changed
 - The light now stays awake and responds immediately instead of sleeping between checks. It was configured as a battery-style sleepy device inherited from the plant monitor project, which meant it could take up to 20 seconds to notice a command from Home Assistant. Being mains-powered, it now stays on the Thread network full time and even helps relay traffic for other devices.

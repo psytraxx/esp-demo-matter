@@ -22,7 +22,9 @@ dangling, and the light renders whichever of the two colour controls was
 written last. The same light can also be switched on/off with the
 physical BOOT button (GPIO9, short press) — both control paths toggle the
 same On/Off attribute, so the button and Home Assistant always agree on
-state. Long-press (5 s) factory-resets.
+state. Long-press (5 s) factory-resets. Colour changes fade rather than snap,
+and the full light state (on/off, brightness, colour) is restored after a power
+cut — see the `StartUp*` note below, which is what makes that work.
 
 No display: the manual pairing code and QR payload are printed to the serial
 console only (`run_commissioning()` in `main/app_main.cpp`).
@@ -41,9 +43,9 @@ idf.py flash monitor
 |------|---------|
 | `main/app_config.h` | Node label, factory-reset hold time |
 | `main/board_pins.h` | GPIO pin assignments (LED, button) |
-| `main/matter_setup.cpp` / `.h` | Endpoint creation, XY→RGB translation, commissioning event handler, pairing-code printing |
-| `main/status_led.cpp` / `.h` | WS2812 RMT driver; `status_led_set_rgb()` for arbitrary color, `status_led_set()` for fixed boot/commissioning/error states |
-| `main/button.cpp` / `.h` | Interrupt-driven BOOT button (unmodified from the sibling project) |
+| `main/matter_setup.cpp` / `.h` | Endpoint creation, XY→RGB and mireds→RGB translation, light-state restore, commissioning event handler, pairing-code printing |
+| `main/status_led.cpp` / `.h` | WS2812 RMT driver; `status_led_set_rgb()` sets a color immediately, `status_led_fade_rgb()` transitions to it, `status_led_set()` for fixed boot/commissioning/error states |
+| `main/button.cpp` / `.h` | Interrupt-driven BOOT button (adapted from the sibling project; its light-sleep wake source was dropped along with ICD) |
 | `main/app_main.cpp` | `app_main()` entry point, boot/commissioning sequence |
 | `main/chip_project_config.h` | Per-build pairing code (discriminator/passcode/verifier) — distinct from the sibling project so both can be commissioned on the same fabric |
 
