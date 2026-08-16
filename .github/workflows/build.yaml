@@ -1,10 +1,24 @@
 name: Firmware
 
+# Only build when something that affects the firmware changes — documentation
+# and changelog edits do not need a 10-minute ESP-IDF build.
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - 'main/**'
+      - 'CMakeLists.txt'
+      - 'sdkconfig.defaults'
+      - 'partitions_waveshare_c6.csv'
+      - '.github/workflows/build.yaml'
   push:
     branches: [main]
+    paths:
+      - 'main/**'
+      - 'CMakeLists.txt'
+      - 'sdkconfig.defaults'
+      - 'partitions_waveshare_c6.csv'
+      - '.github/workflows/build.yaml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
