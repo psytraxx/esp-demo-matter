@@ -78,11 +78,105 @@ static void ensure_init(void)
     }
 }
 
+// ── Colour fading ────────────────────────────────────────────────────────────
+//
+// Transitions run in a short-lived task rather than the caller's context: the
+// Matter attribute callback must not block, and a fade must not busy-wait (see
+// the light-sleep rules in CLAUDE.md). The task steps every
+// STATUS_LED_FADE_STEP_MS and exits as soon as it reaches the target, so the
+// CPU is only held awake for the length of the transition.
+
+#define STATUS_LED_FADE_MS       400
+#define STATUS_LED_FADE_STEP_MS  20
+#define STATUS_LED_FADE_STEPS    (STATUS_LED_FADE_MS / STATUS_LED_FADE_STEP_MS)
+
+static portMUX_TYPE  s_fade_mux = portMUX_INITIALIZER_UNLOCKED;
+static TaskHandle_t  s_fade_task = NULL;
+static uint8_t       s_cur_r = 0, s_cur_g = 0, s_cur_b = 0;      // last value written
+static uint8_t       s_tgt_r = 0, s_tgt_g = 0, s_tgt_b = 0;      // where we are heading
+
+static void status_led_write_now(uint8_t r, uint8_t g, uint8_t b);
+
+static void fade_task(void *)
+{
+    for (;;)
+    {
+        portENTER_CRITICAL(&s_fade_mux);
+        uint8_t sr = s_cur_r, sg = s_cur_g, sb = s_cur_b;
+        uint8_t tr = s_tgt_r, tg = s_tgt_g, tb = s_tgt_b;
+        portEXIT_CRITICAL(&s_fade_mux);
+
+        if (sr == tr && sg == tg && sb == tb)
+            break;
+
+        // Walk from the colour we are showing to the current target. If the
+        // target moves mid-fade the loop restarts from here with the new one.
+        for (int step = 1; step <= STATUS_LED_FADE_STEPS; step++)
+        {
+            portENTER_CRITICAL(&s_fade_mux);
+            bool retarget = (s_tgt_r != tr || s_tgt_g != tg || s_tgt_b != tb);
+            portEXIT_CRITICAL(&s_fade_mux);
+            if (retarget)
+                break;
+
+            uint8_t r = (uint8_t)(sr + (tr - sr) * step / STATUS_LED_FADE_STEPS);
+            uint8_t g = (uint8_t)(sg + (tg - sg) * step / STATUS_LED_FADE_STEPS);
+            uint8_t b = (uint8_t)(sb + (tb - sb) * step / STATUS_LED_FADE_STEPS);
+            status_led_write_now(r, g, b);
+            vTaskDelay(pdMS_TO_TICKS(STATUS_LED_FADE_STEP_MS));
+        }
+    }
+
+    portENTER_CRITICAL(&s_fade_mux);
+    s_fade_task = NULL;
+    portEXIT_CRITICAL(&s_fade_mux);
+    vTaskDelete(NULL);
+}
+
+void status_led_fade_rgb(uint8_t r, uint8_t g, uint8_t b)
+{
+    portENTER_CRITICAL(&s_fade_mux);
+    s_tgt_r = r; s_tgt_g = g; s_tgt_b = b;
+    bool need_task = (s_fade_task == NULL) &&
+                     (s_cur_r != r || s_cur_g != g || s_cur_b != b);
+    portEXIT_CRITICAL(&s_fade_mux);
+
+    if (!need_task)
+        return;
+
+    TaskHandle_t task = NULL;
+    if (xTaskCreate(fade_task, "led_fade", 2560, NULL, 4, &task) != pdPASS)
+    {
+        ESP_LOGW(TAG, "fade task create failed — setting colour directly");
+        status_led_set_rgb(r, g, b);
+        return;
+    }
+
+    portENTER_CRITICAL(&s_fade_mux);
+    s_fade_task = task;
+    portEXIT_CRITICAL(&s_fade_mux);
+}
+
 void status_led_set_rgb(uint8_t r, uint8_t g, uint8_t b)
+{
+    // A direct set wins over any fade in progress: point the target at the new
+    // colour so the fade task converges immediately and exits.
+    portENTER_CRITICAL(&s_fade_mux);
+    s_tgt_r = r; s_tgt_g = g; s_tgt_b = b;
+    portEXIT_CRITICAL(&s_fade_mux);
+
+    status_led_write_now(r, g, b);
+}
+
+static void status_led_write_now(uint8_t r, uint8_t g, uint8_t b)
 {
     ensure_init();
     if (!s_rmt_chan || !s_rmt_enc)
         return;
+
+    portENTER_CRITICAL(&s_fade_mux);
+    s_cur_r = r; s_cur_g = g; s_cur_b = b;
+    portEXIT_CRITICAL(&s_fade_mux);
 
     // WS2812B byte order is G, R, B
     uint8_t grb[3] = {g, r, b};

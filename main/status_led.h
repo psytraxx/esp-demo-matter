@@ -22,8 +22,16 @@ void status_led_set(status_led_state_t state);
 
 // Drive the LED to an arbitrary RGB color (0-255 per channel), held until the
 // next call. This is what the Matter Extended Color Light endpoint's
-// Color Control writes are translated into.
+// Color Control writes are translated into. Takes effect immediately.
 void status_led_set_rgb(uint8_t r, uint8_t g, uint8_t b);
+
+// As status_led_set_rgb(), but fades from the current color over
+// STATUS_LED_FADE_MS instead of jumping. A fade already in progress is
+// retargeted, so rapid updates (a Home Assistant colour-wheel drag) chase the
+// latest value rather than queueing up. The fade runs in a short-lived task
+// that exits once the target is reached, so it does not hold off light sleep
+// any longer than the transition itself.
+void status_led_fade_rgb(uint8_t r, uint8_t g, uint8_t b);
 
 #ifdef __cplusplus
 }

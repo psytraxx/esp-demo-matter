@@ -227,6 +227,13 @@ static uint8_t s_light_level = 254;    // CurrentLevel default (full brightness)
 static uint16_t s_light_x    = 0x616b; // CurrentX (0..65535 represents 0.0..1.0)
 static uint16_t s_light_y    = 0x607d; // CurrentY
 
+// extended_color_light always exposes ColorTemperature alongside XY (the device
+// type mandates it), so Home Assistant shows a temperature tab either way.
+// s_light_use_temp mirrors the cluster's own ColorMode attribute, which the
+// colour-control server maintains and stores non-volatile.
+static uint16_t s_light_temp_mireds = 250; // ~4000 K
+static bool     s_light_use_temp    = false;
+
 // CIE 1931 xyY → sRGB (Philips Hue formula), Y normalised to 1.0 — brightness
 // is applied separately from the Level Control attribute.
 static void xy_to_rgb(float x, float y, uint8_t *r, uint8_t *g, uint8_t *b)
@@ -263,21 +270,71 @@ static void xy_to_rgb(float x, float y, uint8_t *r, uint8_t *g, uint8_t *b)
     *b = (uint8_t)lroundf(std::max(0.0f, std::min(1.0f, bf)) * 255.0f);
 }
 
-static void apply_light_state(void)
+// Mireds (10^6 / kelvin) → sRGB, via Tanner Helland's blackbody approximation.
+// Output is normalised to full brightness; the Level Control attribute scales it.
+static void mireds_to_rgb(uint16_t mireds, uint8_t *r, uint8_t *g, uint8_t *b)
+{
+    if (mireds == 0)
+    {
+        *r = *g = *b = 0;
+        return;
+    }
+
+    float kelvin = 1000000.0f / (float)mireds;
+    kelvin = std::max(1000.0f, std::min(40000.0f, kelvin));
+    float t = kelvin / 100.0f;
+
+    auto clamp255 = [](float v) -> uint8_t {
+        return (uint8_t)lroundf(std::max(0.0f, std::min(255.0f, v)));
+    };
+
+    float rf, gf, bf;
+    if (t <= 66.0f)
+    {
+        rf = 255.0f;
+        gf = 99.4708025861f * logf(t) - 161.1195681661f;
+        bf = (t <= 19.0f) ? 0.0f : 138.5177312231f * logf(t - 10.0f) - 305.0447927307f;
+    }
+    else
+    {
+        rf = 329.698727446f * powf(t - 60.0f, -0.1332047592f);
+        gf = 288.1221695283f * powf(t - 60.0f, -0.0755148492f);
+        bf = 255.0f;
+    }
+
+    *r = clamp255(rf);
+    *g = clamp255(gf);
+    *b = clamp255(bf);
+}
+
+// fade == true smoothly transitions from the colour currently shown; false
+// snaps straight to it (used on boot, where there is nothing to fade from).
+static void apply_light_state(bool fade)
 {
     if (!s_light_on)
     {
-        status_led_set_rgb(0, 0, 0);
+        if (fade)
+            status_led_fade_rgb(0, 0, 0);
+        else
+            status_led_set_rgb(0, 0, 0);
         return;
     }
 
     uint8_t r, g, b;
-    xy_to_rgb((float)s_light_x / 65536.0f, (float)s_light_y / 65536.0f, &r, &g, &b);
+    if (s_light_use_temp)
+        mireds_to_rgb(s_light_temp_mireds, &r, &g, &b);
+    else
+        xy_to_rgb((float)s_light_x / 65536.0f, (float)s_light_y / 65536.0f, &r, &g, &b);
 
     float scale = (float)s_light_level / 254.0f;
-    status_led_set_rgb((uint8_t)lroundf(r * scale),
-                        (uint8_t)lroundf(g * scale),
-                        (uint8_t)lroundf(b * scale));
+    uint8_t out_r = (uint8_t)lroundf(r * scale);
+    uint8_t out_g = (uint8_t)lroundf(g * scale);
+    uint8_t out_b = (uint8_t)lroundf(b * scale);
+
+    if (fade)
+        status_led_fade_rgb(out_r, out_g, out_b);
+    else
+        status_led_set_rgb(out_r, out_g, out_b);
 }
 
 // ── Attribute update callback (fired by Matter stack on attribute writes) ───
@@ -300,14 +357,31 @@ static esp_err_t attr_update_cb(esp_matter::attribute::callback_type_t type,
         else if (cluster_id == LevelControl::Id && attribute_id == LevelControl::Attributes::CurrentLevel::Id)
             s_light_level = val->val.u8;
         else if (cluster_id == ColorControl::Id && attribute_id == ColorControl::Attributes::CurrentX::Id)
+        {
             s_light_x = val->val.u16;
+            s_light_use_temp = false;
+        }
         else if (cluster_id == ColorControl::Id && attribute_id == ColorControl::Attributes::CurrentY::Id)
+        {
             s_light_y = val->val.u16;
+            s_light_use_temp = false;
+        }
+        else if (cluster_id == ColorControl::Id &&
+                 attribute_id == ColorControl::Attributes::ColorTemperatureMireds::Id)
+        {
+            s_light_temp_mireds = val->val.u16;
+            s_light_use_temp = true;
+        }
+        // ColorMode is maintained by the Matter colour-control server itself and
+        // persisted across reboots; mirror it so the restore path and the live
+        // path agree on which colour control is active.
+        else if (cluster_id == ColorControl::Id && attribute_id == ColorControl::Attributes::ColorMode::Id)
+            s_light_use_temp = (val->val.u8 == (uint8_t)ColorControl::ColorModeEnum::kColorTemperatureMireds);
         else
             changed = false;
 
         if (changed)
-            apply_light_state();
+            apply_light_state(true);
     }
 
     return ESP_OK;
@@ -328,6 +402,23 @@ static esp_err_t create_endpoints(esp_matter::node_t *node)
 
     {
         endpoint::extended_color_light::config_t cfg = {};
+
+        // Matter spec: StartUpOnOff / StartUpCurrentLevel of *null* means
+        // "restore the previous value on power-up". esp_matter defaults both to
+        // 0 instead, which means "come up Off" and (clamped by min_level=1)
+        // "come up at brightness 1" — so every power cycle overwrote the
+        // persisted state with a dark, minimum-brightness light.
+        cfg.on_off_lighting.start_up_on_off = nullable<uint8_t>();
+        cfg.level_control_lighting.start_up_current_level = nullable<uint8_t>();
+
+        // Advertise a normal lamp's color-temperature range (2000 K–6535 K).
+        // The esp_matter defaults leave the physical min/max at the full
+        // theoretical span, which makes Home Assistant draw a mostly-flat
+        // gradient with a red band instead of a warm-to-cool ramp.
+        cfg.color_control_color_temperature.color_temp_physical_min_mireds = 153; // ~6535 K
+        cfg.color_control_color_temperature.color_temp_physical_max_mireds = 500; // ~2000 K
+        cfg.color_control_color_temperature.color_temperature_mireds       = 250; // ~4000 K
+
         endpoint_t *ep = endpoint::extended_color_light::create(node, &cfg, ENDPOINT_FLAG_NONE, NULL);
         if (!ep)
         {
@@ -400,10 +491,20 @@ extern "C" void matter_setup(EventGroupHandle_t boot_events,
             s_light_x = val.val.u16;
         if (attribute::get_val(s_ep_light, ColorControl::Id, ColorControl::Attributes::CurrentY::Id, &val) == ESP_OK)
             s_light_y = val.val.u16;
+        if (attribute::get_val(s_ep_light, ColorControl::Id, ColorControl::Attributes::ColorTemperatureMireds::Id, &val) == ESP_OK)
+            s_light_temp_mireds = val.val.u16;
 
-        apply_light_state();
-        ESP_LOGI(TAG, "Restored light state: on=%d level=%u x=%u y=%u",
-                 s_light_on, s_light_level, s_light_x, s_light_y);
+        // ColorMode (spec: 2 = colour temperature) records which control the
+        // light was last driven by. The colour-control server maintains it and
+        // it is stored non-volatile, so it survives the power cycle with the
+        // rest of the light state.
+        if (attribute::get_val(s_ep_light, ColorControl::Id, ColorControl::Attributes::ColorMode::Id, &val) == ESP_OK)
+            s_light_use_temp = (val.val.u8 == (uint8_t)ColorControl::ColorModeEnum::kColorTemperatureMireds);
+
+        apply_light_state(false);
+        ESP_LOGI(TAG, "Restored light state: on=%d level=%u x=%u y=%u mireds=%u temp_mode=%d",
+                 s_light_on, s_light_level, s_light_x, s_light_y,
+                 s_light_temp_mireds, s_light_use_temp);
     }
 
     // Name the board in the controller UI.
