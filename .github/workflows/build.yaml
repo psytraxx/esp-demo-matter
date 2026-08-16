@@ -1,0 +1,41 @@
+name: Firmware
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build firmware
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Cache managed components
+        uses: actions/cache@v5
+        with:
+          path: managed_components
+          key: managed-components-esp32c6-${{ hashFiles('dependencies.lock', 'main/idf_component.yml') }}
+          restore-keys: managed-components-esp32c6-
+
+      - name: Cache ccache
+        uses: actions/cache@v5
+        with:
+          path: .ccache
+          key: ccache-esp32c6-${{ github.sha }}
+          restore-keys: ccache-esp32c6-
+
+      - name: Build firmware
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.5.5
+          target: esp32c6
+          command: idf.py build
+          extra_docker_args: -v ${{ github.workspace }}/.ccache:/root/.ccache -e CCACHE_DIR=/root/.ccache -e IDF_CCACHE_ENABLE=1
