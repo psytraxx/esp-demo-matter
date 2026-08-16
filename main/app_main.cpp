@@ -38,6 +38,7 @@ static void on_button_short_press(void)
     matter_button_toggle();
 }
 
+
 // One-time hardware and subsystem initialisation.
 static void app_init()
 {
@@ -48,8 +49,8 @@ static void app_init()
 
     matter_setup(g_boot_events, BOOT_BIT_COMMISSIONED, BOOT_BIT_SERVER_READY);
 
-    // Interrupt-driven BOOT button — short press toggles the Matter switch
-    // endpoint, long hold factory-resets. Blocks while idle so it does not
+    // Interrupt-driven BOOT button — short press toggles the light's On/Off
+    // attribute, long hold factory-resets. Blocks while idle so it does not
     // defeat light sleep.
     button_init(on_button_long_press, on_button_short_press);
 }
@@ -113,5 +114,5 @@ extern "C" void app_main(void)
                         pdFALSE, pdTRUE, pdMS_TO_TICKS(30000));
 
     status_led_set(STATUS_LED_OFF);
-    ESP_LOGI(TAG, "Ready — button toggles the switch endpoint, LED follows the light endpoint");
+    ESP_LOGI(TAG, "Ready — button toggles the light's On/Off state, LED follows it");
 }
