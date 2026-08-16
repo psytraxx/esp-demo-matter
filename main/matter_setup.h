@@ -16,10 +16,10 @@
 extern "C" {
 #endif
 
-// Initialise the two Matter endpoints (RGB light + on/off switch), register
-// the commissioning event callback, and start the Matter stack. boot_events/
-// commissioned_bit are used to signal MATTER_COMMISSIONING_COMPLETE and
-// server_ready_bit for kServerReady.
+// Initialise the Matter RGB light endpoint, register the commissioning event
+// callback, and start the Matter stack. boot_events/commissioned_bit are used
+// to signal MATTER_COMMISSIONING_COMPLETE and server_ready_bit for
+// kServerReady.
 void matter_setup(EventGroupHandle_t boot_events,
                    EventBits_t commissioned_bit,
                    EventBits_t server_ready_bit);
@@ -27,8 +27,9 @@ void matter_setup(EventGroupHandle_t boot_events,
 // True if the device has a commissioned fabric in NVS.
 bool matter_is_commissioned(void);
 
-// Toggle the switch endpoint's On/Off attribute and push the new value to
-// Matter. Called from the BOOT button's short-press handler.
+// Toggle the light endpoint's On/Off attribute and push the new value to
+// Matter — the same on/off state Home Assistant controls. Called from the
+// BOOT button's short-press handler, so the light can be switched either way.
 void matter_button_toggle(void);
 
 // Fill qr_buf with the "MT:…" QR payload and code_buf with the manual pairing

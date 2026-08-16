@@ -7,13 +7,12 @@ project — see that project's CLAUDE.md for the full rationale behind the
 Matter-over-Thread ICD LIT power model, light-sleep quirks, and commissioning
 flow; this file only covers what's specific to this stripped-down demo.
 
-Two Matter endpoints:
-- **Extended Color Light** (endpoint driving the onboard WS2812 RGB LED,
-  GPIO8) — Home Assistant shows a full-color light with a color wheel and
-  brightness slider.
-- **On/Off Plug-in Unit** (`main/button.cpp` BOOT button, GPIO9) — each short
-  press toggles this endpoint's On/Off attribute; Home Assistant shows it as a
-  switch. Long-press (5 s) factory-resets.
+One Matter endpoint — **Extended Color Light**, driving the onboard WS2812 RGB
+LED (GPIO8). Home Assistant shows a full-color light with a color wheel and
+brightness slider. The same light can also be switched on/off with the
+physical BOOT button (GPIO9, short press) — both control paths toggle the
+same On/Off attribute, so the button and Home Assistant always agree on
+state. Long-press (5 s) factory-resets.
 
 No display: the manual pairing code and QR payload are printed to the serial
 console only (`run_commissioning()` in `main/app_main.cpp`).

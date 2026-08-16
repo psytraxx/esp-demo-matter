@@ -59,7 +59,6 @@ static constexpr uint16_t MATTER_EP_INVALID = 0xFFFFu;
 
 // Endpoint IDs, populated on create
 static uint16_t s_ep_light  = MATTER_EP_INVALID; // extended_color_light (WS2812 RGB)
-static uint16_t s_ep_switch = MATTER_EP_INVALID; // on_off_plug_in_unit (BOOT button)
 
 static EventGroupHandle_t s_boot_events      = NULL;
 static EventBits_t        s_commissioned_bit = 0;
@@ -338,18 +337,7 @@ static esp_err_t create_endpoints(esp_matter::node_t *node)
         s_ep_light = endpoint::get_id(ep);
     }
 
-    {
-        endpoint::on_off_plug_in_unit::config_t cfg = {};
-        endpoint_t *ep = endpoint::on_off_plug_in_unit::create(node, &cfg, ENDPOINT_FLAG_NONE, NULL);
-        if (!ep)
-        {
-            ESP_LOGE(TAG, "on_off_plug_in_unit create failed");
-            return ESP_FAIL;
-        }
-        s_ep_switch = endpoint::get_id(ep);
-    }
-
-    ESP_LOGI(TAG, "Endpoints: light=%u switch=%u", s_ep_light, s_ep_switch);
+    ESP_LOGI(TAG, "Endpoints: light=%u", s_ep_light);
     return ESP_OK;
 }
 
@@ -424,16 +412,16 @@ extern "C" void matter_button_toggle(void)
     using namespace esp_matter;
     using namespace chip::app::Clusters;
 
-    if (s_ep_switch == MATTER_EP_INVALID)
+    if (s_ep_light == MATTER_EP_INVALID)
         return;
 
     esp_matter_attr_val_t val = esp_matter_bool(false);
-    if (attribute::get_val(s_ep_switch, OnOff::Id, OnOff::Attributes::OnOff::Id, &val) != ESP_OK)
+    if (attribute::get_val(s_ep_light, OnOff::Id, OnOff::Attributes::OnOff::Id, &val) != ESP_OK)
         return;
 
     val.val.b = !val.val.b;
-    attribute::update(s_ep_switch, OnOff::Id, OnOff::Attributes::OnOff::Id, &val);
-    ESP_LOGI(TAG, "Switch toggled: %s", val.val.b ? "on" : "off");
+    attribute::update(s_ep_light, OnOff::Id, OnOff::Attributes::OnOff::Id, &val);
+    ESP_LOGI(TAG, "Light toggled: %s", val.val.b ? "on" : "off");
 }
 
 extern "C" void matter_get_pairing_codes(char *qr_buf,  size_t qr_len,
