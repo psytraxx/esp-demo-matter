@@ -45,7 +45,7 @@
 // Hardware identity; the numeric version lets controllers tell board
 // revisions apart if the wiring ever changes.
 #define CHIP_DEVICE_CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION_STRING "Waveshare ESP32-C6-LCD-1.3"
-#define CHIP_DEVICE_CONFIG_DEVICE_PRODUCT_NAME "Matter Demo (C6)"
+#define CHIP_DEVICE_CONFIG_DEVICE_PRODUCT_NAME "Matter Light Demo"
 
 // Firmware version string is deliberately NOT overridden: the SDK default is
 // the git describe of the build, which is exactly what we want to see against

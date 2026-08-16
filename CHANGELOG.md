@@ -4,6 +4,14 @@ Entries are grouped by date, newest first.
 
 ---
 
+## 2026-08-16 (2)
+
+### Fixed
+- The light now resumes its last on/off state and color after a power cycle or restart. Matter persists the last-set state to flash, but the firmware was only reading it back into the LED driver when Home Assistant sent a fresh command — so after a reboot the LED stayed dark until you toggled it again, even though Home Assistant showed it as on. It now re-applies the saved state to the LED as soon as the Matter stack starts.
+
+### Changed
+- Renamed the device from "Matter Demo (C6)" to "Matter Light Demo" (shown in Home Assistant and printed on the hardware version string).
+
 ## 2026-08-16
 
 ### Added

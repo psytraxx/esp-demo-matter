@@ -382,6 +382,30 @@ extern "C" void matter_setup(EventGroupHandle_t boot_events,
     ESP_ERROR_CHECK(esp_matter::start(matter_event_cb));
     ESP_LOGI(TAG, "Matter stack started");
 
+    // esp_matter restores persisted attribute values from NVS into its
+    // internal store on start(), but that restore does not go through
+    // attr_update_cb (no POST_UPDATE fires), so our s_light_* cache and the
+    // physical LED would otherwise stay at their power-on defaults until the
+    // next attribute write. Pull the actual values back out here so the LED
+    // resumes the last on/off + color state across reboots.
+    {
+        using namespace chip::app::Clusters;
+        esp_matter_attr_val_t val = esp_matter_bool(false);
+
+        if (attribute::get_val(s_ep_light, OnOff::Id, OnOff::Attributes::OnOff::Id, &val) == ESP_OK)
+            s_light_on = val.val.b;
+        if (attribute::get_val(s_ep_light, LevelControl::Id, LevelControl::Attributes::CurrentLevel::Id, &val) == ESP_OK)
+            s_light_level = val.val.u8;
+        if (attribute::get_val(s_ep_light, ColorControl::Id, ColorControl::Attributes::CurrentX::Id, &val) == ESP_OK)
+            s_light_x = val.val.u16;
+        if (attribute::get_val(s_ep_light, ColorControl::Id, ColorControl::Attributes::CurrentY::Id, &val) == ESP_OK)
+            s_light_y = val.val.u16;
+
+        apply_light_state();
+        ESP_LOGI(TAG, "Restored light state: on=%d level=%u x=%u y=%u",
+                 s_light_on, s_light_level, s_light_x, s_light_y);
+    }
+
     // Name the board in the controller UI.
     {
         char label[33] = {};

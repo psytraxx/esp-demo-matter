@@ -113,6 +113,7 @@ extern "C" void app_main(void)
     xEventGroupWaitBits(g_boot_events, BOOT_BIT_SERVER_READY,
                         pdFALSE, pdTRUE, pdMS_TO_TICKS(30000));
 
-    status_led_set(STATUS_LED_OFF);
+    // Don't clear the LED here — matter_setup() already restored it to the
+    // persisted on/off + color state during Matter stack start.
     ESP_LOGI(TAG, "Ready — button toggles the light's On/Off state, LED follows it");
 }
