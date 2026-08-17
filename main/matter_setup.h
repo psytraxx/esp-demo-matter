@@ -32,6 +32,10 @@ bool matter_is_commissioned(void);
 // BOOT button's short-press handler, so the light can be switched either way.
 void matter_button_toggle(void);
 
+// Report a debounced occupancy change from the LD2410 radar to the occupancy
+// sensor endpoint. Report-only: does not touch the light.
+void matter_report_occupancy(bool occupied);
+
 // Fill qr_buf with the "MT:…" QR payload and code_buf with the manual pairing
 // code. Blocks until the commissioning window is open and the codes are ready;
 // returns immediately if the device is already commissioned.
