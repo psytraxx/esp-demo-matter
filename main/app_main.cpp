@@ -10,6 +10,7 @@
 #include "matter_setup.h"
 #include "button.h"
 #include "status_led.h"
+#include "ld2410_bridge.h"
 
 static const char *TAG = "app_main";
 
@@ -38,6 +39,15 @@ static void on_button_short_press(void)
     matter_button_toggle();
 }
 
+// ── Radar callback (runs in the radar bridge task context) ──────────────────
+
+static void on_radar_presence(bool occupied)
+{
+    // Report-only for now: no local presence→light coupling. See CLAUDE.md /
+    // CHANGELOG for the reasoning — HA automations own that behaviour.
+    matter_report_occupancy(occupied);
+}
+
 
 // One-time hardware and subsystem initialisation.
 static void app_init()
@@ -52,6 +62,14 @@ static void app_init()
     // Interrupt-driven BOOT button — short press toggles the light's On/Off
     // attribute, long hold factory-resets.
     button_init(on_button_long_press, on_button_short_press);
+
+    // LD2410 presence radar — reports occupancy to Matter; does not touch the
+    // light. This only starts the radar task: the sensor needs a few seconds to
+    // become responsive, so the task does the handshake itself and logs the
+    // outcome. A missing or unresponsive sensor is non-fatal — the light and
+    // commissioning carry on regardless.
+    if (radar_bridge_init(on_radar_presence) != ESP_OK)
+        ESP_LOGW(TAG, "Radar task could not be started — occupancy reporting disabled");
 }
 
 // Run the commissioning flow when the device is not yet paired. Blocks until

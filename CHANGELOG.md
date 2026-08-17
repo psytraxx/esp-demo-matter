@@ -4,6 +4,11 @@ Entries are grouped by date, newest first.
 
 ---
 
+## 2026-08-17
+
+### Added
+- The device now reports whether someone is in the room to Home Assistant, using an attached LD2410 radar sensor. The light is unaffected — set up a Home Assistant automation if you want presence to switch it on.
+
 ## 2026-08-16 (2)
 
 ### Added

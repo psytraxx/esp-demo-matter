@@ -57,7 +57,8 @@ static constexpr uint16_t COMMISSIONING_WINDOW_TIMEOUT_S = 300;
 static constexpr uint16_t MATTER_EP_INVALID = 0xFFFFu;
 
 // Endpoint IDs, populated on create
-static uint16_t s_ep_light  = MATTER_EP_INVALID; // extended_color_light (WS2812 RGB)
+static uint16_t s_ep_light      = MATTER_EP_INVALID; // extended_color_light (WS2812 RGB)
+static uint16_t s_ep_occupancy  = MATTER_EP_INVALID; // occupancy_sensor (LD2410 radar)
 
 static EventGroupHandle_t s_boot_events      = NULL;
 static EventBits_t        s_commissioned_bit = 0;
@@ -394,7 +395,33 @@ static esp_err_t create_endpoints(esp_matter::node_t *node)
         s_ep_light = endpoint::get_id(ep);
     }
 
-    ESP_LOGI(TAG, "Endpoints: light=%u", s_ep_light);
+    {
+        using namespace chip::app::Clusters;
+
+        // occupancy_sensor_type[_bitmap] are the legacy (pre-1.4) attributes,
+        // whose enum has no radar value — kPir is the closest and what Home
+        // Assistant expects for an occupancy binary_sensor. feature_flags is
+        // the newer (Matter 1.4) Feature bitmap, which does have kRadar; the
+        // cluster's create() hard-asserts if feature_flags carries none of
+        // its recognised bits, so this is not optional.
+        endpoint::occupancy_sensor::config_t cfg = {};
+        cfg.occupancy_sensing.occupancy_sensor_type =
+            chip::to_underlying(OccupancySensing::OccupancySensorTypeEnum::kPir);
+        cfg.occupancy_sensing.occupancy_sensor_type_bitmap =
+            chip::to_underlying(OccupancySensing::OccupancySensorTypeBitmap::kPir);
+        cfg.occupancy_sensing.feature_flags =
+            chip::to_underlying(OccupancySensing::Feature::kRadar);
+
+        endpoint_t *ep = endpoint::occupancy_sensor::create(node, &cfg, ENDPOINT_FLAG_NONE, NULL);
+        if (!ep)
+        {
+            ESP_LOGE(TAG, "occupancy_sensor create failed");
+            return ESP_FAIL;
+        }
+        s_ep_occupancy = endpoint::get_id(ep);
+    }
+
+    ESP_LOGI(TAG, "Endpoints: light=%u occupancy=%u", s_ep_light, s_ep_occupancy);
     return ESP_OK;
 }
 
@@ -527,6 +554,20 @@ extern "C" void matter_button_toggle(void)
     val.val.b = !val.val.b;
     attribute::update(s_ep_light, OnOff::Id, OnOff::Attributes::OnOff::Id, &val);
     ESP_LOGI(TAG, "Light toggled: %s", val.val.b ? "on" : "off");
+}
+
+extern "C" void matter_report_occupancy(bool occupied)
+{
+    using namespace esp_matter;
+    using namespace chip::app::Clusters;
+
+    if (s_ep_occupancy == MATTER_EP_INVALID)
+        return;
+
+    esp_matter_attr_val_t val = esp_matter_bitmap8(occupied ? 0x01 : 0x00);
+    attribute::update(s_ep_occupancy, OccupancySensing::Id,
+                      OccupancySensing::Attributes::Occupancy::Id, &val);
+    ESP_LOGI(TAG, "Occupancy reported: %s", occupied ? "occupied" : "clear");
 }
 
 extern "C" void matter_get_pairing_codes(char *qr_buf,  size_t qr_len,

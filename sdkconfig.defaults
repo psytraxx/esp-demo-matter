@@ -84,7 +84,8 @@ CONFIG_DEVICE_PRODUCT_ID=0x8003
 CONFIG_CHIP_PROJECT_CONFIG="main/chip_project_config.h"
 CONFIG_ENABLE_COMMISSIONABLE_DEVICE_TYPE=y
 # Device type 0x010A = On/Off Light (root endpoint placeholder; the real
-# device types live on the two dynamic endpoints — light + switch)
+# device types live on the two dynamic endpoints — extended_color_light and
+# occupancy_sensor)
 CONFIG_DEVICE_TYPE=266
 CONFIG_ESP_MATTER_MAX_DYNAMIC_ENDPOINT_COUNT=8
 
@@ -96,3 +97,15 @@ CONFIG_ESP_INSIGHTS_ENABLED=n
 
 # No display on this board variant — pairing code is printed to the serial
 # console only (see run_commissioning() in app_main.cpp).
+
+# LD2410 presence radar (esp32-ld2410 component). Only IO1/IO2/IO3, IO12/13/16/
+# 17/20/23 are broken out on this board — see docs/image.png. IO16/IO17 were
+# the first choice but are wrong: this board's console (CONFIG_ESP_CONSOLE_UART)
+# runs on UART0 at those same default pins, which crash-looped the boot when
+# the radar driver also claimed them. IO2/IO3 are on the same left header as
+# 5V/GND, and are not strapping pins (GPIO4/5/8/9/15 are, per the ESP32-C6
+# datasheet) or the console UART.
+CONFIG_LD2410_UART_PORT_NUM=1
+CONFIG_LD2410_UART_TX=3
+CONFIG_LD2410_UART_RX=2
+CONFIG_LD2410_UART_BAUD_RATE=256000
