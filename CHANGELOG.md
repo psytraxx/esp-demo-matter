@@ -7,7 +7,7 @@ Entries are grouped by date, newest first.
 ## 2026-08-17
 
 ### Added
-- The device now reports whether someone is in the room to Home Assistant, using an attached LD2410 radar sensor. The light is unaffected — set up a Home Assistant automation if you want presence to switch it on.
+- The device now reports whether someone is in the room to Home Assistant, using an attached LD2410 radar sensor. Someone sitting still still counts as present, and the room is only reported empty after a few seconds with nobody detected, so the sensor doesn't flicker on and off. The light is unaffected — set up a Home Assistant automation if you want presence to switch it on.
 
 ## 2026-08-16 (2)
 

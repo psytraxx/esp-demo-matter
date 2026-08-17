@@ -13,11 +13,12 @@ inline constexpr const char *BOARD_NODE_LABEL = "Matter Light Demo";
 // Hold the BOOT button (PIN_WAKE_BUTTON) this long to factory-reset.
 inline constexpr uint32_t FACTORY_RESET_HOLD_MS = 5000;
 
-// The LD2410's raw presence reading flickers between frames. Presence is
-// asserted the instant a target is seen, but only de-asserted after this long
-// with no target — this hold period is what keeps the reported occupancy
-// state stable instead of chattering.
-inline constexpr uint32_t RADAR_HOLD_MS = 5000;
+// The LD2410's "no-one window": it keeps reporting a target for this many
+// seconds after the last detection before declaring the room empty. This is a
+// sensor-side setting (written once at startup), not a software debounce —
+// the sensor decides using per-gate energy data the firmware never sees.
+// Raise it if the occupancy sensor clears while someone is sitting still.
+inline constexpr uint8_t RADAR_NO_ONE_WINDOW_S = 5;
 
 // The LD2410 streams target frames within a second of power-on, but does not
 // answer commands (which is how the driver's begin() confirms it is present)

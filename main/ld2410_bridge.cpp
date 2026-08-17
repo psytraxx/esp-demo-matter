@@ -47,9 +47,20 @@ static bool radar_bring_online(void)
     return false;
 }
 
-// Polls the sensor and debounces its raw presence reading: occupied is
-// reported the instant a target is seen, but only cleared after RADAR_HOLD_MS
-// with no target, so the reported occupancy doesn't chatter between polls.
+// Polls the sensor and reports presence changes.
+//
+// The hold ("keep reporting occupied for a while after the last detection") is
+// delegated to the sensor's own no-one window rather than reimplemented here:
+// the LD2410 only starts reporting "no presence" once it has seen no target for
+// that many seconds, and it makes that decision with per-gate energy data the
+// firmware here never sees.
+//
+// Only act on RP_DATA. ld2410_check() distinguishes a freshly parsed data frame
+// (RP_DATA) from a command ACK (RP_ACK) and from nothing useful (RP_FAIL), so
+// the reported state simply holds whenever no new reading arrived. This matters
+// because the driver's own ld2410_presence_detected() collapses "no target"
+// and "data older than its 500 ms lifespan" into the same false, which made
+// every brief gap in the frame stream look like the room had emptied.
 static void radar_task(void *)
 {
     if (!radar_bring_online())
@@ -58,42 +69,30 @@ static void radar_task(void *)
         vTaskDelete(NULL);
         return;
     }
-    ESP_LOGI(TAG, "LD2410 radar ready");
 
-    bool     reported_occupied = false;
-    bool     raw_occupied      = false;
-    TickType_t clear_deadline  = 0;
+    if (!ld2410_set_no_one_window(s_dev, RADAR_NO_ONE_WINDOW_S))
+        ESP_LOGW(TAG, "could not set no-one window; using the sensor's stored value (%u s)",
+                 ld2410_get_no_one_window(s_dev));
+
+    ESP_LOGI(TAG, "LD2410 radar ready (no-one window %u s, range %lu cm)",
+             ld2410_get_no_one_window(s_dev), ld2410_get_range_cm(s_dev));
+
+    bool reported_occupied = false;
 
     for (;;)
     {
-        ld2410_check(s_dev);
-        raw_occupied = ld2410_presence_detected(s_dev);
-
-        if (raw_occupied)
+        if (ld2410_check(s_dev) == RP_DATA)
         {
-            if (!reported_occupied)
+            // status 1/2/3 = moving / stationary / both; 0 = no target.
+            const bool occupied = ld2410_presence_detected(s_dev);
+
+            if (occupied != reported_occupied)
             {
-                reported_occupied = true;
+                reported_occupied = occupied;
                 if (s_on_change)
-                    s_on_change(true);
+                    s_on_change(occupied);
             }
         }
-        else if (reported_occupied)
-        {
-            TickType_t now = xTaskGetTickCount();
-            if (clear_deadline == 0)
-                clear_deadline = now + pdMS_TO_TICKS(RADAR_HOLD_MS);
-            else if (now >= clear_deadline)
-            {
-                reported_occupied = false;
-                clear_deadline    = 0;
-                if (s_on_change)
-                    s_on_change(false);
-            }
-        }
-
-        if (raw_occupied)
-            clear_deadline = 0;
 
         vTaskDelay(pdMS_TO_TICKS(20));
     }
