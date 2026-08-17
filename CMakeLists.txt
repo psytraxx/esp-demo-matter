@@ -19,15 +19,18 @@ if(EXISTS "${OCCUPANCY_INTEGRATION_CPP}")
     string(FIND "${_occ_src}" "esp_matter_get_occupancy_cluster" _occ_patched)
     if(_occ_patched EQUAL -1)
         message(STATUS "Applying esp_matter occupancy accessor patch")
-        execute_process(
-            COMMAND patch -p1 -i "${CMAKE_CURRENT_LIST_DIR}/patches/esp_matter_occupancy_accessor.patch"
-            WORKING_DIRECTORY "${ESP_MATTER_DIR}"
-            RESULT_VARIABLE _occ_patch_result
-            OUTPUT_VARIABLE _occ_patch_output
-            ERROR_VARIABLE  _occ_patch_output)
-        if(NOT _occ_patch_result EQUAL 0)
+        # Appended rather than applied with patch(1): the addition goes at
+        # end-of-file, where a unified diff's context is sensitive to trailing
+        # whitespace and line-count drift between component versions.
+        file(READ "${CMAKE_CURRENT_LIST_DIR}/patches/esp_matter_occupancy_accessor.cpp.in" _occ_addition)
+        file(APPEND "${OCCUPANCY_INTEGRATION_CPP}" "${_occ_addition}")
+
+        file(READ "${OCCUPANCY_INTEGRATION_CPP}" _occ_verify)
+        string(FIND "${_occ_verify}" "esp_matter_get_occupancy_cluster" _occ_ok)
+        if(_occ_ok EQUAL -1)
             message(FATAL_ERROR
-                "Failed to apply patches/esp_matter_occupancy_accessor.patch:\n${_occ_patch_output}\n"
+                "Failed to append the esp_matter occupancy accessor to\n"
+                "  ${OCCUPANCY_INTEGRATION_CPP}\n"
                 "Occupancy reporting will not work without it — see README.md.")
         endif()
     endif()
