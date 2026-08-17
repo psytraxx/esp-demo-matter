@@ -67,6 +67,16 @@ The device is always on — no ICD, no tickless light sleep (see the power-model
 note at the top). The BOOT button is still interrupt-driven rather than polled
 (`button_init()`), which is simply the better design; keep it that way.
 
+**Occupancy reporting depends on a local patch in `managed_components/`**, which
+is gitignored and does not survive a clean checkout. `attribute::update()` does
+*not* work for the Occupancy attribute — reads are served by the registered
+`OccupancySensingCluster`, so it must be set via the cluster's own
+`SetOccupancy()`, reached through a patched-in accessor. Symptom if the patch is
+missing: writes return `ESP_OK` but every read returns 0 and Home Assistant
+never updates. Full explanation and the open decisions are in
+[README.md](README.md) — read that before touching `matter_report_occupancy()`
+or bumping `esp_matter`.
+
 **All three `StartUp*` attributes must stay null.** esp_matter defaults every
 one of them to a concrete value, and the Matter spec treats a non-null value as
 "force this on power up", which silently discards the persisted light state:

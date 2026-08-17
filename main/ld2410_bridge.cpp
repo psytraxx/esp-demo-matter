@@ -81,7 +81,15 @@ static void radar_task(void *)
 
     for (;;)
     {
-        if (ld2410_check(s_dev) == RP_DATA)
+        // ld2410_check() returns as soon as it completes a single frame, but the
+        // sensor streams at ~10 Hz so several frames queue up between polls.
+        // Drain them all and evaluate the newest, otherwise we act on a stale
+        // frame while fresher ones sit in the buffer.
+        bool got_data = false;
+        while (ld2410_check(s_dev) == RP_DATA)
+            got_data = true;
+
+        if (got_data)
         {
             // status 1/2/3 = moving / stationary / both; 0 = no target.
             const bool occupied = ld2410_presence_detected(s_dev);

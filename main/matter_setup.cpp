@@ -43,11 +43,21 @@
 #include <lib/core/CHIPError.h>
 #include <setup_payload/OnboardingCodesUtil.h>
 #include <system/SystemClock.h>
+#include <platform/CHIPDeviceLayer.h>
 #include <app-common/zap-generated/ids/Clusters.h>
 #include <app-common/zap-generated/ids/Attributes.h>
 
 #include "status_led.h"
 #include "board_pins.h"
+
+// Reads for a registered cluster are served by the cluster object, not
+// esp_matter's attribute store, so Occupancy has to be set through the cluster's
+// own SetOccupancy(). Upstream keeps the instance file-local; this accessor is a
+// local patch in
+// managed_components/espressif__esp_matter/components/esp_matter/data_model_provider/clusters/occupancy_sensing/integration.cpp
+#include <app/clusters/occupancy-sensor-server/OccupancySensingCluster.h>
+chip::app::Clusters::OccupancySensingCluster *
+esp_matter_get_occupancy_cluster(chip::EndpointId endpointId);
 
 static const char *TAG = "matter_setup";
 // Commissioning window timeout (s)
@@ -547,12 +557,15 @@ extern "C" void matter_button_toggle(void)
     if (s_ep_light == MATTER_EP_INVALID)
         return;
 
+    // attribute::update() takes the CHIP stack lock internally, so no explicit
+    // locking is needed here even though this runs on the button task.
     esp_matter_attr_val_t val = esp_matter_bool(false);
     if (attribute::get_val(s_ep_light, OnOff::Id, OnOff::Attributes::OnOff::Id, &val) != ESP_OK)
         return;
 
     val.val.b = !val.val.b;
     attribute::update(s_ep_light, OnOff::Id, OnOff::Attributes::OnOff::Id, &val);
+
     ESP_LOGI(TAG, "Light toggled: %s", val.val.b ? "on" : "off");
 }
 
@@ -564,10 +577,43 @@ extern "C" void matter_report_occupancy(bool occupied)
     if (s_ep_occupancy == MATTER_EP_INVALID)
         return;
 
-    esp_matter_attr_val_t val = esp_matter_bitmap8(occupied ? 0x01 : 0x00);
-    attribute::update(s_ep_occupancy, OccupancySensing::Id,
-                      OccupancySensing::Attributes::Occupancy::Id, &val);
-    ESP_LOGI(TAG, "Occupancy reported: %s", occupied ? "occupied" : "clear");
+    // The data model provider serves reads for a registered cluster from the
+    // cluster object itself (esp_matter_data_model_provider.cpp:324 —
+    // "if (auto *cluster = mRegistry.Get(request.path)) return
+    // cluster->ReadAttribute(...)"), so Occupancy lives in
+    // OccupancySensingCluster::mOccupancy. esp_matter's attribute::update()
+    // writes a separate store that is never read for this cluster, so it
+    // silently no-ops while returning ESP_OK — verified by a read-back and by a
+    // live read of 2/1030/0 from the controller, both showing 0.
+    //
+    // SetOccupancy() is the cluster's real setter and raises the report itself
+    // via NotifyAttributeChanged(). The accessor is a local patch in
+    // managed_components/.../occupancy_sensing/integration.cpp (see the note
+    // there) because upstream keeps the instance file-local.
+    //
+    // Scheduled onto the Matter thread: SetOccupancy() touches cluster state and
+    // generates a report, so it must not run on the radar task.
+    const uint16_t ep = s_ep_occupancy;
+
+    chip::DeviceLayer::SystemLayer().ScheduleLambda([ep, occupied]() {
+        auto *cluster = esp_matter_get_occupancy_cluster(ep);
+        if (!cluster)
+        {
+            ESP_LOGE(TAG, "OccupancySensing cluster not registered on ep %u", ep);
+            return;
+        }
+
+        cluster->SetOccupancy(occupied);
+
+        // SetOccupancy() defers the clear when the cluster's HoldTime is active,
+        // so a mismatch here is expected on the way to unoccupied, not an error.
+        const bool now = cluster->IsOccupied();
+        if (now != occupied)
+            ESP_LOGI(TAG, "Occupancy set %d, cluster still %d (HoldTime deferring)",
+                     (int)occupied, (int)now);
+        else
+            ESP_LOGI(TAG, "Occupancy reported: %s", occupied ? "occupied" : "clear");
+    });
 }
 
 extern "C" void matter_get_pairing_codes(char *qr_buf,  size_t qr_len,
