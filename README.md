@@ -68,6 +68,17 @@ so upgrading does not fix it.
 Note: Espressif's own `examples/sensors` uses `attribute::update()` for
 occupancy and would hit this same problem — it is not a reliable reference here.
 
+**Confirmed independently upstream:**
+[espressif/esp-matter#1738](https://github.com/espressif/esp-matter/issues/1738)
+(open) traces the identical bug through the identical call chain and reaches
+the same workaround shape — call the registered cluster's own setter. Their
+writeup references a `#include <clusters/occupancy_sensing/integration.h>`
+exposing `FindClusterOnEndpoint()`, which does not exist in the 1.5.1 tree
+vendored here (possibly a newer/different esp-matter revision); the accessor
+below was verified working on what we actually have. Worth checking this issue
+when bumping `esp_matter` — if it's fixed, the patch step in `CMakeLists.txt`
+and `patches/esp_matter_occupancy_accessor.cpp.in` can be deleted.
+
 ### The patch
 
 Appended to
@@ -90,14 +101,17 @@ calls `SetOccupancy()` on the Matter thread.
 
 ### What to decide
 
-1. **Make it survive a clean build** — the current state is not reproducible.
-   Options: a `patches/` file applied by a build step, vendoring that one file
-   into the project, or a `CMakeLists.txt` hook.
-2. **Raise it upstream** — an esp-matter issue/PR asking for an official
-   accessor or a `set_val()` path that routes to cluster setters. That would
-   remove the patch entirely.
+1. ~~**Make it survive a clean build**~~ — done: `CMakeLists.txt` appends
+   `patches/esp_matter_occupancy_accessor.cpp.in` at configure time and fails
+   the build loudly if the accessor doesn't land, so this is no longer a silent
+   trap on a fresh checkout.
+2. **Raise it upstream** — already tracked at
+   [espressif/esp-matter#1738](https://github.com/espressif/esp-matter/issues/1738)
+   (open, filed by someone else who hit the same bug independently). No PR from
+   this project yet; consider filing one if the issue stalls.
 3. **Re-check on each esp_matter bump** — if upstream exposes an official
-   setter, delete the patch and this section.
+   setter (in #1738 or otherwise), delete the patch step, the `.cpp.in` file,
+   and this section.
 
 The same private-`gServers` pattern applies to other code-driven clusters
 (e.g. `boolean_state`), so anything similar added later will hit this too.
