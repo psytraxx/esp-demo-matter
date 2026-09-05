@@ -356,13 +356,6 @@ static esp_err_t attr_update_cb(esp_matter::attribute::callback_type_t type,
     return ESP_OK;
 }
 
-static esp_err_t identify_cb(esp_matter::identification::callback_type_t /*type*/,
-                              uint16_t /*ep*/, uint8_t /*effect*/, uint8_t /*variant*/,
-                              void * /*priv_data*/)
-{
-    return ESP_OK;
-}
-
 // ── Endpoint creation ────────────────────────────────────────────────────────
 
 static esp_err_t create_endpoints(esp_matter::node_t *node)
@@ -449,7 +442,9 @@ extern "C" void matter_setup(EventGroupHandle_t boot_events,
     using namespace esp_matter;
 
     node::config_t node_cfg = {};
-    node_t *node = node::create(&node_cfg, attr_update_cb, identify_cb);
+    // No identify callback: nothing in this device reacts to the Identify
+    // cluster's effects, and esp_matter no-ops safely when this is null.
+    node_t *node = node::create(&node_cfg, attr_update_cb, nullptr);
     if (!node)
     {
         ESP_LOGE(TAG, "node::create failed — restarting");
