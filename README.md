@@ -61,9 +61,8 @@ but keeps the cluster instance in a file-local `gServers` map with no accessor.
 CHIP's own `FindClusterOnEndpoint()` does not link here, because esp_matter uses
 its own data-model provider instead of CHIP's codegen integration.
 
-Checked on `release/v1.5` (in use), `release/v1.6` and `main` — all three have
-the same private structure, and 1.5.1 is the newest on the component registry,
-so upgrading does not fix it.
+Checked on `release/v1.5`, `release/v1.6` (in use) and `main` — all three have
+the same private structure, so upgrading does not fix it.
 
 Note: Espressif's own `examples/sensors` uses `attribute::update()` for
 occupancy and would hit this same problem — it is not a reliable reference here.
@@ -73,9 +72,10 @@ occupancy and would hit this same problem — it is not a reliable reference her
 (open) traces the identical bug through the identical call chain and reaches
 the same workaround shape — call the registered cluster's own setter. Their
 writeup references a `#include <clusters/occupancy_sensing/integration.h>`
-exposing `FindClusterOnEndpoint()`, which does not exist in the 1.5.1 tree
-vendored here (possibly a newer/different esp-matter revision); the accessor
-below was verified working on what we actually have. Worth checking this issue
+exposing `FindClusterOnEndpoint()`, which does not exist in the esp-matter
+tree vendored here (possibly a newer/different esp-matter revision); the
+accessor below was verified working on what we actually have. Worth checking
+this issue
 when bumping `esp_matter` — if it's fixed, the patch step in `CMakeLists.txt`
 and `patches/esp_matter_occupancy_accessor.cpp.in` can be deleted.
 
@@ -102,7 +102,9 @@ calls `SetOccupancy()` on the Matter thread.
 ### What to decide
 
 1. ~~**Make it survive a clean build**~~ — done: `CMakeLists.txt` appends
-   `patches/esp_matter_occupancy_accessor.cpp.in` at configure time and fails
+   `patches/esp_matter_occupancy_accessor.cpp.in` after `project()` fetches
+   esp_matter (patching earlier would silently no-op on a fresh checkout,
+   since `managed_components/` doesn't exist until that fetch runs) and fails
    the build loudly if the accessor doesn't land, so this is no longer a silent
    trap on a fresh checkout.
 2. **Raise it upstream** — already tracked at

@@ -4,6 +4,14 @@ Entries are grouped by date, newest first.
 
 ---
 
+## 2026-09-05
+
+### Changed
+- Updated to a newer release of the Matter SDK (esp_matter 1.6). No behaviour change for users.
+
+### Fixed
+- A brand-new checkout used to fail its very first build with an occupancy-sensor linker error, needing a second build to succeed. The first build now fetches and patches the SDK correctly on its own.
+
 ## 2026-08-17
 
 ### Added
