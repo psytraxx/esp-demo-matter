@@ -8,6 +8,8 @@ Entries are grouped by date, newest first.
 
 ### Changed
 - Updated to a newer release of the Matter SDK (esp_matter 1.6). No behaviour change for users.
+- Moved onto the current Espressif toolchain (ESP-IDF v6.0.3), which is the release the Matter SDK now recommends. Building the project needs that version installed; the pinned dependency versions in the project enforce it.
+- Swapped the radar sensor driver for a maintained one that works on the new toolchain. Presence detection behaves the same, including the few-seconds delay before the room is reported empty — that hold is now handled by the firmware rather than configured on the sensor, so the radar's own stored settings are left alone.
 
 ### Fixed
 - A brand-new checkout used to fail its very first build with an occupancy-sensor linker error, needing a second build to succeed. The first build now fetches and patches the SDK correctly on its own.

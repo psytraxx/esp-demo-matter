@@ -4,9 +4,8 @@ Sensor connector is a 1.27mm 5-pin header (`sensor.png`); board pinout is the
 Waveshare ESP32-C6-LCD-1.3's broken-out headers (`board.png`). Only nine GPIOs
 are broken out on this board; IO16/IO17 look tempting (adjacent, UART-capable)
 but are this board's console UART0 pins — wiring the radar there crash-loops
-the boot. IO2/IO3 are used instead, set via the `esp32-ld2410` component's own
-Kconfig (`CONFIG_LD2410_UART_TX`/`CONFIG_LD2410_UART_RX` in
-`sdkconfig.defaults`), not `board_pins.h`.
+the boot. IO2/IO3 are used instead, set as `RADAR_UART_TX`/`RADAR_UART_RX` in
+`board_pins.h`.
 
 ```mermaid
 flowchart LR

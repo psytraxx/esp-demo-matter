@@ -1,7 +1,7 @@
 # esp-demo-matter
 
 Minimal Matter test device for the Waveshare ESP32-C6-LCD-1.3 (display unused),
-built on native ESP-IDF v5.5.5 + `espressif/esp_matter`.
+built on native ESP-IDF v6.0.3 + `espressif/esp_matter`.
 
 Two endpoints over Matter-over-Thread:
 
@@ -16,7 +16,7 @@ and [CHANGELOG.md](CHANGELOG.md) for user-facing history.
 ## Build
 
 ```bash
-source ~/.espressif/v5.5.5/esp-idf/export.sh
+source ~/.espressif/v6.0.3/esp-idf/export.sh
 idf.py build
 idf.py flash monitor
 ```
