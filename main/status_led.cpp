@@ -47,8 +47,6 @@ static void ensure_init(void)
         .flags             = {
             .invert_out       = false,
             .with_dma         = false,
-            .io_loop_back     = false,
-            .io_od_mode       = false,
         },
     };
     if (rmt_new_tx_channel(&chan_cfg, &s_rmt_chan) != ESP_OK)
