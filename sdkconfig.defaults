@@ -79,6 +79,8 @@ CONFIG_ENABLE_EXTENDED_DISCOVERY=y
 # Matter device identity
 CONFIG_DEVICE_VENDOR_ID=0xFFF2
 CONFIG_DEVICE_PRODUCT_ID=0x8003
+CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION=1
+CONFIG_USE_TEST_SERIAL_NUMBER="DEMOMATTER-0001"
 # Per-build pairing code (discriminator + passcode + spake2p verifier) — edit
 # main/chip_project_config.h before flashing to give each device its own code.
 CONFIG_CHIP_PROJECT_CONFIG="main/chip_project_config.h"

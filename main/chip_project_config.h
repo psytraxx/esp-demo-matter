@@ -38,10 +38,15 @@
 
 #define CHIP_DEVICE_CONFIG_DEVICE_VENDOR_NAME "psytraxx"
 
-// Serial number shown in the controller's device info (SDK default: TEST_SN).
-// Like the pairing code above, make it unique per device before flashing.
-#define CHIP_DEVICE_CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION 1
-#define CHIP_DEVICE_CONFIG_TEST_SERIAL_NUMBER "DEMOMATTER-0001"
+// Hardware version and serial number shown in the controller's device info
+// (SDK defaults: 0 and "TEST_SN"). Set via Kconfig (CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION
+// / CONFIG_USE_TEST_SERIAL_NUMBER in sdkconfig.defaults), not #define'd here:
+// CHIPDevicePlatformConfig.h #defines CHIP_DEVICE_CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION
+// and CHIP_DEVICE_CONFIG_TEST_SERIAL_NUMBER itself from those Kconfig values,
+// unconditionally and after this file is included — a #define here collided
+// with that and was a hard error under -Werror (which CI enables; a local
+// `idf.py build` only warned).
+//
 // Hardware identity; the numeric version lets controllers tell board
 // revisions apart if the wiring ever changes.
 #define CHIP_DEVICE_CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION_STRING "Waveshare ESP32-C6-LCD-1.3"
