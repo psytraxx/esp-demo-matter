@@ -4,6 +4,11 @@ Entries are grouped by date, newest first.
 
 ---
 
+## 2026-09-05 (2)
+
+### Fixed
+- Fixed a bug where the light could stop responding to colour changes from Home Assistant until the device was rebooted. It only happened if a colour change landed while the light was already at (or very near) that colour, but from then on every further colour change was silently ignored.
+
 ## 2026-09-05
 
 ### Changed

@@ -19,24 +19,20 @@ static rmt_encoder_handle_t s_rmt_enc  = NULL;
 // WS2812B timing at 10 MHz (1 tick = 100 ns):
 //   T0H = 4 ticks (400 ns), T0L = 9 ticks (900 ns)
 //   T1H = 8 ticks (800 ns), T1L = 4 ticks (400 ns)
-static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
+
+// Shared with the fade state below — one mutex protects all of status_led's
+// mutable state, including this single-shot init guard.
+static portMUX_TYPE s_mux          = portMUX_INITIALIZER_UNLOCKED;
+static bool         s_init_started = false;
 
 static void ensure_init(void)
 {
     portENTER_CRITICAL(&s_mux);
-    if (s_rmt_chan)
-    {
-        portEXIT_CRITICAL(&s_mux);
-        return;
-    }
-    static bool init_started = false;
-    if (init_started)
-    {
-        portEXIT_CRITICAL(&s_mux);
-        return;
-    }
-    init_started = true;
+    bool skip = s_rmt_chan || s_init_started;
+    s_init_started = true;
     portEXIT_CRITICAL(&s_mux);
+    if (skip)
+        return;
 
     rmt_tx_channel_config_t chan_cfg = {
         .gpio_num          = PIN_STATUS_LED,
@@ -86,10 +82,17 @@ static void ensure_init(void)
 #define STATUS_LED_FADE_STEP_MS  20
 #define STATUS_LED_FADE_STEPS    (STATUS_LED_FADE_MS / STATUS_LED_FADE_STEP_MS)
 
-static portMUX_TYPE  s_fade_mux = portMUX_INITIALIZER_UNLOCKED;
-static TaskHandle_t  s_fade_task = NULL;
-static uint8_t       s_cur_r = 0, s_cur_g = 0, s_cur_b = 0;      // last value written
-static uint8_t       s_tgt_r = 0, s_tgt_g = 0, s_tgt_b = 0;      // where we are heading
+// s_fade_active tracks "a fade task exists or is about to" — set true before
+// xTaskCreate() so the task, once running, always finds it already set (never
+// overwritten back to true by a late assignment after the task has cleared
+// it on exit). Storing a TaskHandle_t for the same purpose was tried and
+// dropped: setting it from the creator, after xTaskCreate() returns, raced
+// against the task's own NULL-out on exit whenever a fade converged
+// immediately (target == current colour), permanently wedging need_task
+// false and silently dropping every fade after that.
+static bool     s_fade_active = false;
+static uint8_t  s_cur_r = 0, s_cur_g = 0, s_cur_b = 0;      // last value written
+static uint8_t  s_tgt_r = 0, s_tgt_g = 0, s_tgt_b = 0;      // where we are heading
 
 static void status_led_write_now(uint8_t r, uint8_t g, uint8_t b);
 
@@ -97,10 +100,10 @@ static void fade_task(void *)
 {
     for (;;)
     {
-        portENTER_CRITICAL(&s_fade_mux);
+        portENTER_CRITICAL(&s_mux);
         uint8_t sr = s_cur_r, sg = s_cur_g, sb = s_cur_b;
         uint8_t tr = s_tgt_r, tg = s_tgt_g, tb = s_tgt_b;
-        portEXIT_CRITICAL(&s_fade_mux);
+        portEXIT_CRITICAL(&s_mux);
 
         if (sr == tr && sg == tg && sb == tb)
             break;
@@ -109,9 +112,9 @@ static void fade_task(void *)
         // target moves mid-fade the loop restarts from here with the new one.
         for (int step = 1; step <= STATUS_LED_FADE_STEPS; step++)
         {
-            portENTER_CRITICAL(&s_fade_mux);
+            portENTER_CRITICAL(&s_mux);
             bool retarget = (s_tgt_r != tr || s_tgt_g != tg || s_tgt_b != tb);
-            portEXIT_CRITICAL(&s_fade_mux);
+            portEXIT_CRITICAL(&s_mux);
             if (retarget)
                 break;
 
@@ -123,43 +126,42 @@ static void fade_task(void *)
         }
     }
 
-    portENTER_CRITICAL(&s_fade_mux);
-    s_fade_task = NULL;
-    portEXIT_CRITICAL(&s_fade_mux);
+    portENTER_CRITICAL(&s_mux);
+    s_fade_active = false;
+    portEXIT_CRITICAL(&s_mux);
     vTaskDelete(NULL);
 }
 
 void status_led_fade_rgb(uint8_t r, uint8_t g, uint8_t b)
 {
-    portENTER_CRITICAL(&s_fade_mux);
+    portENTER_CRITICAL(&s_mux);
     s_tgt_r = r; s_tgt_g = g; s_tgt_b = b;
-    bool need_task = (s_fade_task == NULL) &&
+    bool need_task = !s_fade_active &&
                      (s_cur_r != r || s_cur_g != g || s_cur_b != b);
-    portEXIT_CRITICAL(&s_fade_mux);
+    if (need_task)
+        s_fade_active = true;
+    portEXIT_CRITICAL(&s_mux);
 
     if (!need_task)
         return;
 
-    TaskHandle_t task = NULL;
-    if (xTaskCreate(fade_task, "led_fade", 2560, NULL, 4, &task) != pdPASS)
+    if (xTaskCreate(fade_task, "led_fade", 2560, NULL, 4, NULL) != pdPASS)
     {
         ESP_LOGW(TAG, "fade task create failed — setting colour directly");
+        portENTER_CRITICAL(&s_mux);
+        s_fade_active = false;
+        portEXIT_CRITICAL(&s_mux);
         status_led_set_rgb(r, g, b);
-        return;
     }
-
-    portENTER_CRITICAL(&s_fade_mux);
-    s_fade_task = task;
-    portEXIT_CRITICAL(&s_fade_mux);
 }
 
 void status_led_set_rgb(uint8_t r, uint8_t g, uint8_t b)
 {
     // A direct set wins over any fade in progress: point the target at the new
     // colour so the fade task converges immediately and exits.
-    portENTER_CRITICAL(&s_fade_mux);
+    portENTER_CRITICAL(&s_mux);
     s_tgt_r = r; s_tgt_g = g; s_tgt_b = b;
-    portEXIT_CRITICAL(&s_fade_mux);
+    portEXIT_CRITICAL(&s_mux);
 
     status_led_write_now(r, g, b);
 }
@@ -170,9 +172,9 @@ static void status_led_write_now(uint8_t r, uint8_t g, uint8_t b)
     if (!s_rmt_chan || !s_rmt_enc)
         return;
 
-    portENTER_CRITICAL(&s_fade_mux);
+    portENTER_CRITICAL(&s_mux);
     s_cur_r = r; s_cur_g = g; s_cur_b = b;
-    portEXIT_CRITICAL(&s_fade_mux);
+    portEXIT_CRITICAL(&s_mux);
 
     // WS2812B byte order is G, R, B
     uint8_t grb[3] = {g, r, b};
@@ -207,7 +209,6 @@ void status_led_set(status_led_state_t state)
         status_led_set_rgb(0, 0, 0);
         break;
     case STATUS_LED_ERROR:         status_led_set_rgb(STATUS_BRIGHTNESS, 0, 0); break;  // red
-    case STATUS_LED_OFF:
     default:                       status_led_set_rgb(0, 0, 0); break;
     }
 }

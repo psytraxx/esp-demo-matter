@@ -7,7 +7,6 @@
 // Home Assistant has set a color.
 typedef enum
 {
-    STATUS_LED_OFF,            // idle / no active status
     STATUS_LED_BOOT,           // device alive, boot in progress
     STATUS_LED_COMMISSIONING,  // commissioning window open
     STATUS_LED_OK,             // brief blink acknowledging an event
