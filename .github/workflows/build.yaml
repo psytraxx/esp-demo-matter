@@ -28,6 +28,10 @@ jobs:
   build:
     name: Build firmware
     runs-on: ubuntu-latest
+    env:
+      # Host-side ccache dir. This is the path ccache-action defaults its
+      # cache_dir to, and it's bind-mounted into the ESP-IDF container below.
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -40,11 +44,22 @@ jobs:
           restore-keys: managed-components-esp32c6-
 
       - name: Cache ccache
-        uses: actions/cache@v6
+        uses: hendrikmuhs/ccache-action@v1.2.24
         with:
-          path: .ccache
-          key: ccache-esp32c6-${{ github.sha }}
-          restore-keys: ccache-esp32c6-
+          key: esp32c6-v6.0.3
+          max-size: 400M
+          evict-old-files: 7d
+
+      - name: Configure ccache for the container
+        run: |
+          mkdir -p "${{ env.CCACHE_DIR }}"
+          cat > "${{ env.CCACHE_DIR }}/ccache.conf" <<'EOF'
+          max_size = 400M
+          compression = true
+          compiler_check = %compiler% --version
+          hash_dir = false
+          sloppiness = time_macros,include_file_mtime,include_file_ctime,locale,random_seed
+          EOF
 
       - name: Build firmware
         uses: espressif/esp-idf-ci-action@v1
@@ -52,4 +67,10 @@ jobs:
           esp_idf_version: v6.0.3
           target: esp32c6
           command: idf.py build
-          extra_docker_args: -v ${{ github.workspace }}/.ccache:/root/.ccache -e CCACHE_DIR=/root/.ccache -e IDF_CCACHE_ENABLE=1
+          extra_docker_args: -v ${{ env.CCACHE_DIR }}:/root/.ccache -e CCACHE_DIR=/root/.ccache -e IDF_CCACHE_ENABLE=1
+
+      - name: Fix cache permissions
+        # The container writes to CCACHE_DIR as root; take ownership back so the
+        # post-job ccache-action step can read and save the cache.
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" "$CCACHE_DIR"

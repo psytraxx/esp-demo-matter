@@ -4,6 +4,11 @@ Entries are grouped by date, newest first.
 
 ---
 
+## 2026-09-08
+
+### Fixed
+- The CI firmware build now reuses its compiler cache between runs, so pull-request builds finish in a fraction of the time instead of recompiling the whole Matter SDK every time.
+
 ## 2026-09-05 (2)
 
 ### Fixed
