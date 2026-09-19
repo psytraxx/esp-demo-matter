@@ -4,6 +4,11 @@ Entries are grouped by date, newest first.
 
 ---
 
+## 2026-09-19
+
+### Removed
+- Removed the presence radar sensor and the "someone's in the room" reporting it enabled in Home Assistant. The device now exposes just the color light — no separate radar hardware, wiring or setup needed.
+
 ## 2026-09-08
 
 ### Fixed

@@ -19,14 +19,14 @@
 //      commissioning silently.
 // ─────────────────────────────────────────────────────────────────────────────
 
-#define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_DISCRIMINATOR 0x820
+#define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_DISCRIMINATOR 0x2dc
 
-#define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_PIN_CODE 20250816
+#define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_PIN_CODE 84019148
 
-// Generated with: python3 tools/spake2p_verifier.py 20250816
+// Generated with: python3 tools/spake2p_verifier.py 84019148
 #define CHIP_DEVICE_CONFIG_USE_TEST_SPAKE2P_VERIFIER                        \
-    "XpKnXq3eEW4XiHgXR/LzHTwR+3yQGzV94Mhfl13VIBMEce0olq+vi/2U/+s2qAZl4oLt" \
-    "+91YIrfcWIra2Zefvm2aFSNWSW3n5FajUI/gVLv7BqxL677r81EA39f5th8xAQ=="
+    "dzQa8lUU2/uJwPS2q2YAHNOOQwWkfXmuuJpTGdK1m2oE4Zvso/Fo67K/WyJ7IePf1nGX" \
+    "EtK0lEMp0RWyRid7lnGkuPAPFzSHcNgLHnvcCEsgrys4uKLClNzp51/qJpggfg=="
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Basic Information cluster identity, shown by controllers (e.g. Home
