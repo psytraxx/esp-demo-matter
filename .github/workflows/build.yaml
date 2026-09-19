@@ -46,7 +46,7 @@ jobs:
       - name: Cache ccache
         uses: hendrikmuhs/ccache-action@v1.2.24
         with:
-          key: esp32c6-v6.0.3
+          key: esp32c6-v6.1
           max-size: 400M
           evict-old-files: 7d
 
@@ -64,7 +64,7 @@ jobs:
       - name: Build firmware
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: v6.0.3
+          esp_idf_version: v6.1
           target: esp32c6
           command: idf.py build
           extra_docker_args: -v ${{ env.CCACHE_DIR }}:/root/.ccache -e CCACHE_DIR=/root/.ccache -e IDF_CCACHE_ENABLE=1

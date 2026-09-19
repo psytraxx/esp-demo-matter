@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Minimal Matter test device for the **Waveshare ESP32-C6-LCD-1.3** (display
-unused). Language: C++ on the **native ESP-IDF v6.0.3** toolchain
+unused). Language: C++ on the **native ESP-IDF v6.1** toolchain
 (`espressif/esp_matter`), the same stack as the sibling
 `esp32-homecontrol-matter` project — see that project's CLAUDE.md for the
 commissioning flow rationale; this file only covers what's specific to this
@@ -32,7 +32,7 @@ console only (`run_commissioning()` in `main/app_main.cpp`).
 ## Build Commands
 
 ```bash
-source ~/.espressif/v6.0.3/esp-idf/export.sh
+source ~/.espressif/v6.1/esp-idf/export.sh
 idf.py build
 idf.py flash monitor
 ```
