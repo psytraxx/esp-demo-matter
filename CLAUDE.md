@@ -41,12 +41,11 @@ idf.py flash monitor
 
 | File | Purpose |
 |------|---------|
-| `main/app_config.h` | Node label, factory-reset hold time, radar no-one window and UART baud |
-| `main/board_pins.h` | GPIO pin assignments (LED, button, radar UART) |
+| `main/app_config.h` | Node label and factory-reset hold time |
+| `main/board_pins.h` | GPIO pin assignments (LED, button) |
 | `main/matter_setup.cpp` / `.h` | Endpoint creation, XY→RGB and mireds→RGB translation, light-state restore, commissioning event handler, pairing-code printing |
 | `main/status_led.cpp` / `.h` | WS2812 RMT driver; `status_led_set_rgb()` sets a color immediately, `status_led_fade_rgb()` transitions to it, `status_led_set()` for fixed boot/commissioning/error states |
 | `main/button.cpp` / `.h` | Interrupt-driven BOOT button (adapted from the sibling project; its light-sleep wake source was dropped along with ICD) |
-| `main/ld2410_bridge.cpp` / `.h` | LD2410 radar over UART (`jef-sure/ld2410c`): owns the UART setup, polls target frames, applies the software no-one window, reports presence edges |
 | `main/app_main.cpp` | `app_main()` entry point, boot/commissioning sequence |
 | `main/chip_project_config.h` | Per-build pairing code (discriminator/passcode/verifier) — distinct from the sibling project so both can be commissioned on the same fabric |
 
@@ -67,16 +66,6 @@ without file or function names. Compare the existing entries for the tone —
 The device is always on — no ICD, no tickless light sleep (see the power-model
 note at the top). The BOOT button is still interrupt-driven rather than polled
 (`button_init()`), which is simply the better design; keep it that way.
-
-**Occupancy reporting depends on a local patch in `managed_components/`**, which
-is gitignored and does not survive a clean checkout. `attribute::update()` does
-*not* work for the Occupancy attribute — reads are served by the registered
-`OccupancySensingCluster`, so it must be set via the cluster's own
-`SetOccupancy()`, reached through a patched-in accessor. Symptom if the patch is
-missing: writes return `ESP_OK` but every read returns 0 and Home Assistant
-never updates. Full explanation and the open decisions are in
-[README.md](README.md) — read that before touching `matter_report_occupancy()`
-or bumping `esp_matter`.
 
 **All three `StartUp*` attributes must stay null.** esp_matter defaults every
 one of them to a concrete value, and the Matter spec treats a non-null value as
