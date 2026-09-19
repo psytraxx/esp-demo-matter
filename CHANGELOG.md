@@ -6,6 +6,9 @@ Entries are grouped by date, newest first.
 
 ## 2026-09-19
 
+### Added
+- The project now watches for new releases of the Matter SDK and the Espressif toolchain it is built against, and files a monthly reminder when either one falls behind. Previously these were pinned by hand and could quietly go years out of date. Nothing about the device's behaviour changes — this only affects maintenance of the project itself.
+
 ### Removed
 - Removed the presence radar sensor and the "someone's in the room" reporting it enabled in Home Assistant. The device now exposes just the color light — no separate radar hardware, wiring or setup needed.
 

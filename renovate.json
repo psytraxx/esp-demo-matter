@@ -17,5 +17,19 @@
     ],
     "automerge": true
   },
-  "separateMajorMinor": true
+  "separateMajorMinor": true,
+  "customManagers": [
+    {
+      "description": "Track the ESP-IDF version the CI build uses. The ESP Component Manager registry is not a Renovate datasource, so esp_matter in main/idf_component.yml is watched by the check-component-updates workflow instead.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/build\\.yaml$/"
+      ],
+      "matchStrings": [
+        "esp_idf_version:\\s*(?<currentValue>v[\\d.]+)"
+      ],
+      "depNameTemplate": "espressif/esp-idf",
+      "datasourceTemplate": "github-releases"
+    }
+  ]
 }

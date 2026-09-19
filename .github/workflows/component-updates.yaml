@@ -1,0 +1,98 @@
+name: Component updates
+
+# Renovate cannot see the ESP Component Manager registry
+# (components.espressif.com is not one of its datasources), so the esp_matter
+# pin in main/idf_component.yml would silently go stale. This job asks the
+# registry directly and opens an issue when a newer version is published.
+on:
+  schedule:
+    # Monthly, matching the schedule:monthly preset in renovate.json.
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Check ESP Component Registry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Compare pinned versions against the registry
+        id: check
+        run: |
+          set -euo pipefail
+          outdated=""
+
+          # Every "namespace/component: version" dependency in the manifest.
+          # The bare "idf" entry is a version range handled by Renovate.
+          while IFS= read -r line; do
+            dep=$(echo "$line" | sed -E 's/^[[:space:]]*([^:]+):.*/\1/')
+            pinned=$(echo "$line" | sed -E 's/.*:[[:space:]]*"?([^"]+)"?[[:space:]]*$/\1/')
+
+            latest=$(curl -fsSL "https://components.espressif.com/api/components/${dep}" \
+              | jq -r '.versions[0].version')
+
+            echo "$dep: pinned=$pinned latest=$latest"
+            if [ "$pinned" != "$latest" ]; then
+              outdated="${outdated}- \`${dep}\`: pinned \`${pinned}\`, registry has \`${latest}\`"$'\n'
+            fi
+          done < <(grep -E '^[[:space:]]+[a-z0-9_]+/[a-z0-9_]+:' main/idf_component.yml)
+
+          {
+            echo 'outdated<<EOF'
+            echo "$outdated"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update an issue
+        if: steps.check.outputs.outdated != ''
+        uses: actions/github-script@v8
+        env:
+          OUTDATED: ${{ steps.check.outputs.outdated }}
+        with:
+          script: |
+            const title = 'Managed component updates available';
+            const body = [
+              'The ESP Component Registry has newer versions of components pinned in `main/idf_component.yml`:',
+              '',
+              process.env.OUTDATED,
+              'To update, edit the pin in `main/idf_component.yml`, then regenerate the lock file:',
+              '',
+              '```bash',
+              'source ~/.espressif/v6.0.3/esp-idf/export.sh',
+              'idf.py reconfigure   # rewrites dependencies.lock',
+              'idf.py build',
+              '```',
+              '',
+              'Commit `main/idf_component.yml` and `dependencies.lock` together.',
+            ].join('\n');
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'dependencies',
+            });
+            const existing = issues.find((i) => i.title === title);
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['dependencies'],
+              });
+            }
