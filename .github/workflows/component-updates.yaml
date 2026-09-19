@@ -64,7 +64,7 @@ jobs:
               'To update, edit the pin in `main/idf_component.yml`, then regenerate the lock file:',
               '',
               '```bash',
-              'source ~/.espressif/v6.0.3/esp-idf/export.sh',
+              'source ~/.espressif/v6.1/esp-idf/export.sh',
               'idf.py reconfigure   # rewrites dependencies.lock',
               'idf.py build',
               '```',
