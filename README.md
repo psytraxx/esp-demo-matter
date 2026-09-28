@@ -70,6 +70,21 @@ On the device's serial console an update shows up as `OTA: download in
 progress` → `download complete` → `apply complete — rebooting`, then
 `First boot of updated firmware — marking it valid` after the reboot.
 
-Requirements: Docker, and this machine must reach the Thread network over IPv6
-through the border router. That's the same requirement Home Assistant has, and
-it's normally true on the same LAN.
+Requirements:
+
+- **Docker.**
+- **A route to the Thread network.** The border router advertises the Thread
+  prefix on the LAN (`ip -6 route` shows `fd..::/64 via fe80::… proto ra`),
+  so pinging a light's `fd..` address from this machine should work. The
+  addresses are listed by `ot-ctl srp server host` on the border router.
+- **An inbound firewall rule for the provider.** During an update the *light*
+  opens the connection to the provider on this machine (UDP 5565, set by
+  `PROVIDER_PORT`), so a default-deny firewall drops it and the download never
+  starts. With ufw:
+
+  ```bash
+  sudo ufw allow proto udp from fd0a:7d78:af03:1::/64 to any port 5565 comment 'Matter OTA provider'
+  ```
+
+  Use your own Thread prefix (from `ip -6 route`). mDNS (UDP 5353 multicast)
+  is already allowed by ufw's default rules.
