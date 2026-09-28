@@ -7,6 +7,7 @@
 
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_ota_ops.h"
 #include "esp_matter.h"
 #include "esp_matter_endpoint.h"
 #include "esp_matter_cluster.h"
@@ -113,6 +114,39 @@ static void refresh_pairing_codes(void)
     ESP_LOGI(TAG, "Matter QR payload : %s", qr);
 }
 
+// With CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE, an image installed by OTA boots
+// in ESP_OTA_IMG_PENDING_VERIFY. Reaching kServerReady means the new firmware
+// got the whole Matter stack up, so it is kept; a crash or reset before this
+// point makes the bootloader fall back to the previous slot instead.
+static void confirm_running_image(void)
+{
+    esp_ota_img_states_t state;
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    if (esp_ota_get_state_partition(running, &state) == ESP_OK &&
+        state == ESP_OTA_IMG_PENDING_VERIFY)
+    {
+        ESP_LOGI(TAG, "First boot of updated firmware — marking it valid");
+        esp_ota_mark_app_valid_cancel_rollback();
+    }
+}
+
+static const char *ota_state_name(chip::DeviceLayer::OtaState state)
+{
+    using namespace chip::DeviceLayer;
+    switch (state)
+    {
+    case kOtaSpaceAvailable:     return "space available";
+    case kOtaDownloadInProgress: return "download in progress";
+    case kOtaDownloadComplete:   return "download complete";
+    case kOtaDownloadFailed:     return "download failed";
+    case kOtaDownloadAborted:    return "download aborted";
+    case kOtaApplyInProgress:    return "apply in progress";
+    case kOtaApplyComplete:      return "apply complete — rebooting";
+    case kOtaApplyFailed:        return "apply failed";
+    default:                     return "unknown";
+    }
+}
+
 // ── Matter event callback ───────────────────────────────────────────────────
 
 static void matter_event_cb(const chip::DeviceLayer::ChipDeviceEvent *event, intptr_t /*arg*/)
@@ -124,6 +158,7 @@ static void matter_event_cb(const chip::DeviceLayer::ChipDeviceEvent *event, int
     {
     case chip::DeviceLayer::DeviceEventType::kServerReady:
         ESP_LOGI(TAG, "Matter server ready");
+        confirm_running_image();
         if (s_boot_events && s_server_ready_bit)
             xEventGroupSetBits(s_boot_events, s_server_ready_bit);
         if (chip::Server::GetInstance().GetFabricTable().FabricCount() > 0)
@@ -151,6 +186,10 @@ static void matter_event_cb(const chip::DeviceLayer::ChipDeviceEvent *event, int
         ESP_LOGI(TAG, "Commissioning complete");
         if (s_boot_events)
             xEventGroupSetBits(s_boot_events, s_commissioned_bit);
+        break;
+
+    case chip::DeviceLayer::DeviceEventType::kOtaStateChanged:
+        ESP_LOGI(TAG, "OTA: %s", ota_state_name(event->OtaStateChanged.newState));
         break;
 
     case chip::DeviceLayer::DeviceEventType::kFailSafeTimerExpired:

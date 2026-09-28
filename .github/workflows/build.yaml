@@ -69,6 +69,12 @@ jobs:
           command: idf.py build
           extra_docker_args: -v ${{ env.CCACHE_DIR }}:/root/.ccache -e CCACHE_DIR=/root/.ccache -e IDF_CCACHE_ENABLE=1
 
+      - name: Upload OTA image
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp_demo_matter-ota
+          path: build/esp_demo_matter-ota.bin
+
       - name: Fix cache permissions
         # The container writes to CCACHE_DIR as root; take ownership back so the
         # post-job ccache-action step can read and save the cache.

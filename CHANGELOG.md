@@ -4,6 +4,14 @@ Entries are grouped by date, newest first.
 
 ---
 
+## 2026-09-28
+
+### Added
+- The light can now be updated wirelessly through Matter. Home Assistant (or any other Matter controller that can serve updates) can push new firmware over Thread, and no USB cable is needed after this release. If an update fails to start properly, the light automatically goes back to the version it was running before.
+
+### Changed
+- The flash layout changed to make room for wireless updates, so this one release must be flashed over USB. The device stays paired with Home Assistant across that flash.
+
 ## 2026-09-19
 
 ### Added

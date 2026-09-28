@@ -26,6 +26,11 @@ state. Long-press (5 s) factory-resets. Colour changes fade rather than snap,
 and the full light state (on/off, brightness, colour) is restored after a power
 cut — see the `StartUp*` note below, which is what makes that work.
 
+The device is a Matter **OTA Requestor** (esp_matter adds the requestor cluster
+on endpoint 0 when `CONFIG_ENABLE_OTA_REQUESTOR` is on). The build emits
+`build/esp_demo_matter-ota.bin`; releasing needs `PROJECT_VER_NUMBER` bumped in
+the root `CMakeLists.txt`. See README for the release flow.
+
 No display: the manual pairing code and QR payload are printed to the serial
 console only (`run_commissioning()` in `main/app_main.cpp`).
 
@@ -87,6 +92,13 @@ Light state is restored from the cluster's own non-volatile attributes
 don't add a parallel NVS store for any of it. ColorMode is maintained by the
 Matter colour-control server and tells the restore path whether the light was
 last driven by the colour wheel or the temperature slider.
+
+**OTA partitions and rollback.** The flash has two 1.875 MB app slots
+(`ota_0`/`ota_1`); the app is ~1.7 MB, so watch the `check_sizes` headroom in
+the build output. `nvs` and `matter` must keep their offsets or devices lose
+their fabric on update. Bootloader rollback is on: `confirm_running_image()`
+marks a new image valid at `kServerReady` — don't remove it, or every update
+reverts on the following reboot.
 
 The colour fade (`status_led_fade_rgb()`) runs in a task that exits as soon as
 it reaches the target, rather than a permanently resident animation task.

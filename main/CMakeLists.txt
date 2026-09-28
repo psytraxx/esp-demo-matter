@@ -5,5 +5,5 @@ idf_component_register(
         "status_led.cpp"
         "button.cpp"
     INCLUDE_DIRS "."
-    REQUIRES driver esp_driver_gpio esp_driver_rmt
+    REQUIRES driver esp_driver_gpio esp_driver_rmt app_update
 )
