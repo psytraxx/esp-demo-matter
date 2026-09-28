@@ -80,7 +80,9 @@ Requirements:
 - **An inbound firewall rule for the provider.** During an update the *light*
   opens the connection to the provider on this machine (UDP 5565, set by
   `PROVIDER_PORT`), so a default-deny firewall drops it and the download never
-  starts. With ufw:
+  starts. If ufw is active, `release` and `offer` check for this rule and add
+  it (via `sudo`) for each Thread prefix they find in `ip -6 route`. The
+  manual equivalent is:
 
   ```bash
   sudo ufw allow proto udp from fd0a:7d78:af03:1::/64 to any port 5565 comment 'Matter OTA provider'

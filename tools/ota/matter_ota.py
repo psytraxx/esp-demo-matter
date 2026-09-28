@@ -296,6 +296,37 @@ async def offer(timeout_s: int) -> None:
         stop_provider(provider)
 
 
+def thread_prefixes() -> list[str]:
+    """Thread OMR prefixes the border router advertises onto the LAN: fd../64
+    routes that are only reachable via a router (the LAN's own ULA is on-link)."""
+    routes = subprocess.run(["ip", "-6", "route"], capture_output=True, text=True).stdout.splitlines()
+    on_link = {r.split()[0] for r in routes if " via " not in r}
+    return sorted({r.split()[0] for r in routes
+                   if r.startswith("fd") and r.split()[0].endswith("/64")
+                   and " via " in r and r.split()[0] not in on_link})
+
+
+def ensure_firewall() -> None:
+    """The light opens the BDX connection to the provider, so a default-deny
+    ufw must allow UDP PROVIDER_PORT from the Thread network."""
+    if not shutil.which("ufw"):
+        return
+    active = subprocess.run(["systemctl", "is-active", "--quiet", "ufw"]).returncode == 0
+    if not active:
+        return
+    prefixes = thread_prefixes()
+    if not prefixes:
+        log("warning: no Thread route found (ip -6 route) — is the border router advertising one?")
+        return
+    status = subprocess.run(["sudo", "ufw", "status"], capture_output=True, text=True).stdout
+    for prefix in prefixes:
+        if any(f"{PROVIDER_PORT}/udp" in l and prefix in l for l in status.splitlines()):
+            continue
+        log(f"adding ufw rule: UDP {PROVIDER_PORT} from {prefix} (OTA provider)")
+        subprocess.run(["sudo", "ufw", "allow", "proto", "udp", "from", prefix, "to", "any",
+                        "port", str(PROVIDER_PORT), "comment", "Matter OTA provider"], check=True)
+
+
 def in_container(argv: list[str]) -> None:
     """Re-run this script with `argv` inside the controller/provider container."""
     HOST_STATE.mkdir(parents=True, exist_ok=True)
@@ -317,6 +348,7 @@ def cmd_release(args) -> None:
     if not args.no_bump:
         bump_version()
     build()
+    ensure_firewall()
     in_container(["offer", "--timeout", str(args.timeout)])
 
 
@@ -340,6 +372,8 @@ def main() -> None:
             sys.exit("release runs on the host (it needs ESP-IDF to build)")
         cmd_release(args)
     elif not IN_CONTAINER:
+        if args.cmd == "offer":
+            ensure_firewall()
         in_container(sys.argv[1:])
     else:
         STATE.mkdir(parents=True, exist_ok=True)
