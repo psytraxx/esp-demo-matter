@@ -29,7 +29,8 @@ cut — see the `StartUp*` note below, which is what makes that work.
 The device is a Matter **OTA Requestor** (esp_matter adds the requestor cluster
 on endpoint 0 when `CONFIG_ENABLE_OTA_REQUESTOR` is on). The build emits
 `build/esp_demo_matter-ota.bin`; releasing needs `PROJECT_VER_NUMBER` bumped in
-the root `CMakeLists.txt`. See README for the release flow.
+the root `CMakeLists.txt`. `tools/ota/matter_ota.py release` automates bump →
+build → offer from this machine (see README).
 
 No display: the manual pairing code and QR payload are printed to the serial
 console only (`run_commissioning()` in `main/app_main.cpp`).

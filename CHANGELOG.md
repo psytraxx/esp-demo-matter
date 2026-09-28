@@ -7,6 +7,7 @@ Entries are grouped by date, newest first.
 ## 2026-09-28
 
 ### Added
+- A one-command release script: it raises the version number, builds the firmware and pushes it to every paired light over the air, then waits until each light is running the new version. It works alongside Home Assistant, which keeps controlling the light as usual.
 - The light can now be updated wirelessly through Matter. Home Assistant (or any other Matter controller that can serve updates) can push new firmware over Thread, and no USB cable is needed after this release. If an update fails to start properly, the light automatically goes back to the version it was running before.
 
 ### Changed

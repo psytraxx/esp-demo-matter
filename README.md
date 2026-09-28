@@ -32,21 +32,44 @@ to two OTA slots, so the first flash after this change must be over USB with
 `idf.py flash` (this also writes the new partition table). Commissioning is
 kept, because both NVS partitions stay where they were.
 
-### Releasing an update
+### Releasing an update (local script)
 
-1. Bump `PROJECT_VER` **and** `PROJECT_VER_NUMBER` in the root `CMakeLists.txt`.
-   The provider only offers an image whose number is higher than the running one.
-2. `idf.py build` — this writes `build/esp_demo_matter-ota.bin`, the app wrapped
-   in the Matter OTA header (VID `0xFFF2`, PID `0x8003`, version). Inspect it with
-   `python managed_components/espressif__esp_matter/connectedhomeip/connectedhomeip/src/app/ota_image_tool.py show build/esp_demo_matter-ota.bin`.
-3. Serve it from an OTA Provider on the same fabric:
-   - **Home Assistant:** the Matter Server add-on is a provider. Test VIDs
-     (0xFFF1–0xFFF4) are not in the DCL, so point the add-on at a local
-     update file (its "OTA provider" directory with a JSON entry for this
-     VID/PID) and use the device's *Update* entity.
-   - **chip-tool** (lab setup): run `chip-ota-provider-app -f build/esp_demo_matter-ota.bin`,
-     commission it, grant it ACL access to the device, then
-     `chip-tool otasoftwareupdaterequestor announce-otaprovider <provider-node> 0 0 0 <device-node> 0`.
-4. Watch the serial log: `OTA: download in progress` → `download complete` →
-   `apply complete — rebooting`, then after reboot
-   `First boot of updated firmware — marking it valid`.
+`tools/ota/matter_ota.py` does the whole loop from this machine: bump the
+version, build, and offer the new image to every paired light. The version
+bump and build run on the host (ESP-IDF). The Matter parts run in a Docker
+container that is built on first use (`tools/ota/Dockerfile`), using Home
+Assistant's prebuilt CHIP controller wheels and
+[`chip-ota-provider-app`](https://github.com/home-assistant-libs/matter-linux-ota-provider).
+
+The script uses **its own fabric** alongside Home Assistant (Matter
+multi-admin), so HA keeps controlling the light as before. The fabric's keys
+live in `~/.local/state/esp-demo-matter-ota/`. Keep that directory: deleting it
+means pairing every light again.
+
+One-time, per light:
+
+1. In Home Assistant open the light → ⋮ → *Share device*, and copy the
+   pairing code.
+2. `tools/ota/matter_ota.py pair <code>` (it assigns node 1, 2, … automatically).
+
+Each release:
+
+```bash
+tools/ota/matter_ota.py release     # bump patch + version number, build, offer, wait
+tools/ota/matter_ota.py status      # version and update state per light
+tools/ota/matter_ota.py offer       # re-offer the current build (no bump)
+```
+
+`release` starts the provider, tells each light where it is
+(`AnnounceOTAProvider`), and waits until every light reports the new version.
+Lights already on that version are skipped. Downloading ~1.7 MB over Thread
+takes a few minutes. The provider's log is at
+`~/.local/state/esp-demo-matter-ota/provider.log`.
+
+On the device's serial console an update shows up as `OTA: download in
+progress` → `download complete` → `apply complete — rebooting`, then
+`First boot of updated firmware — marking it valid` after the reboot.
+
+Requirements: Docker, and this machine must reach the Thread network over IPv6
+through the border router. That's the same requirement Home Assistant has, and
+it's normally true on the same LAN.
