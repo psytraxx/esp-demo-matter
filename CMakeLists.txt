@@ -7,8 +7,8 @@ set(SDKCONFIG_DEFAULTS "sdkconfig.defaults")
 # SoftwareVersionString), PROJECT_VER_NUMBER is the integer the OTA provider
 # compares — a device only accepts an image whose number is higher than the
 # one it is running.
-set(PROJECT_VER "1.0.0")
-set(PROJECT_VER_NUMBER 1)
+set(PROJECT_VER "1.0.1")
+set(PROJECT_VER_NUMBER 2)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(esp_demo_matter)

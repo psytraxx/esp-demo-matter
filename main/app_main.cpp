@@ -2,6 +2,7 @@
 
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_app_desc.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -100,7 +101,8 @@ extern "C" void app_main(void)
 {
     esp_log_level_set("BLE_INIT", ESP_LOG_WARN);
 
-    ESP_LOGI(TAG, "=== Matter demo device boot ===");
+    ESP_LOGI(TAG, "=== Matter demo device boot — firmware %s ===",
+             esp_app_get_description()->version);
 
     app_init();
 

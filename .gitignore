@@ -12,3 +12,4 @@ build/
 .cache/
 .serena/
 .vscode/launch.json
+__pycache__/
