@@ -1,7 +1,7 @@
 # Matter controller + OTA provider for tools/ota/matter_ota.py.
 # Containerised because Home Assistant's CHIP wheels hard-code their storage
 # to /data (they are built for the Matter Server add-on).
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 ARG CHIP_WHEELS=2025.7.0
 ARG PROVIDER_RELEASE=2025.9.0
