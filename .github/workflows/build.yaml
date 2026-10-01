@@ -70,7 +70,7 @@ jobs:
           extra_docker_args: -v ${{ env.CCACHE_DIR }}:/root/.ccache -e CCACHE_DIR=/root/.ccache -e IDF_CCACHE_ENABLE=1
 
       - name: Upload OTA image
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: esp_demo_matter-ota
           path: build/esp_demo_matter-ota.bin
