@@ -51,7 +51,7 @@ jobs:
 
       - name: Open or update an issue
         if: steps.check.outputs.outdated != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           OUTDATED: ${{ steps.check.outputs.outdated }}
         with:
