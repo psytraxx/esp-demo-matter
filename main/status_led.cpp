@@ -100,12 +100,20 @@ static void fade_task(void *)
 {
     for (;;)
     {
+        // The "reached target" check and clearing s_fade_active happen under
+        // one lock hold. Clearing it later, after releasing the lock, left a
+        // gap where status_led_fade_rgb() could set a new target, see the
+        // task still marked active and skip creating one — and this task
+        // would then exit without fading to it, dropping that change.
         portENTER_CRITICAL(&s_mux);
         uint8_t sr = s_cur_r, sg = s_cur_g, sb = s_cur_b;
         uint8_t tr = s_tgt_r, tg = s_tgt_g, tb = s_tgt_b;
+        bool done = (sr == tr && sg == tg && sb == tb);
+        if (done)
+            s_fade_active = false;
         portEXIT_CRITICAL(&s_mux);
 
-        if (sr == tr && sg == tg && sb == tb)
+        if (done)
             break;
 
         // Walk from the colour we are showing to the current target. If the
@@ -126,9 +134,6 @@ static void fade_task(void *)
         }
     }
 
-    portENTER_CRITICAL(&s_mux);
-    s_fade_active = false;
-    portEXIT_CRITICAL(&s_mux);
     vTaskDelete(NULL);
 }
 

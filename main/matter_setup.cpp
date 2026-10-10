@@ -329,6 +329,10 @@ static void apply_light_state(bool fade)
     uint8_t out_g = (uint8_t)lroundf(g * scale);
     uint8_t out_b = (uint8_t)lroundf(b * scale);
 
+    ESP_LOGI(TAG, "Light → %s level=%u rgb=(%u,%u,%u) out=(%u,%u,%u)",
+             s_light_use_temp ? "temp" : "xy", s_light_level,
+             r, g, b, out_r, out_g, out_b);
+
     if (fade)
         status_led_fade_rgb(out_r, out_g, out_b);
     else
@@ -377,6 +381,19 @@ static esp_err_t attr_update_cb(esp_matter::attribute::callback_type_t type,
             s_light_use_temp = (val->val.u8 == (uint8_t)ColorControl::ColorModeEnum::kColorTemperatureMireds);
         else
             changed = false;
+
+        // Diagnostic trail for "the light reacts to on/off but not to colour":
+        // every attribute change on the light endpoint, so the console shows
+        // whether a colour command reached the device and which mode it left
+        // the light in. Unhandled attributes are logged too, in case a
+        // controller drives the light through something this callback ignores.
+        if (changed)
+            ESP_LOGI(TAG, "Light attr 0x%04" PRIx32 "/0x%04" PRIx32 " → on=%d level=%u x=%u y=%u mireds=%u temp_mode=%d",
+                     cluster_id, attribute_id, s_light_on, s_light_level,
+                     s_light_x, s_light_y, s_light_temp_mireds, s_light_use_temp);
+        else
+            ESP_LOGI(TAG, "Light attr 0x%04" PRIx32 "/0x%04" PRIx32 " (not used for the LED)",
+                     cluster_id, attribute_id);
 
         if (changed)
             apply_light_state(true);

@@ -4,6 +4,14 @@ Entries are grouped by date, newest first.
 
 ---
 
+## 2026-10-10
+
+### Fixed
+- A colour change could occasionally be dropped if it arrived at the exact moment the previous fade was finishing, leaving the light on the old colour until the next change. Colour changes are now always picked up.
+
+### Changed
+- The serial console now logs every change Home Assistant makes to the light (on/off, brightness, colour, colour mode) along with the colour actually sent to the LED. This is to track down a report of the light switching on and off fine but no longer changing colour.
+
 ## 2026-09-28
 
 ### Added
