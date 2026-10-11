@@ -4,6 +4,11 @@ Entries are grouped by date, newest first.
 
 ---
 
+## 2026-10-09
+
+### Added
+- A plain-language blog post about the project, for readers who want to know what the light does and why it was built without reading the technical documentation.
+
 ## 2026-09-28
 
 ### Added
